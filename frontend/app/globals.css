@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+@theme {
+  /* In v4, defining a variable starting with --color- inside @theme 
+     automatically creates utilities like bg-primary, text-primary, etc.
+  */
+  --navbar-bg: #EBF8FC;
+  --navbar-text: #094A7C;
+  --color-blue-500: #37B6E3;
+  /* Add navbar colors to theme */
+  --color-navbar-bg: var(--navbar-bg);
+  --color-navbar-text: var(--navbar-text);
+
+  --color-mission-dark: #01393C;
+  --color-mission-light: #EBF8FC;
+  --color-curve-line: #216D88;
+
+  /* The Teal color from the design */
+  --color-primary: hsl(185 100% 40%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  /* Background & Foreground */
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222 47% 11%);
+
+  /* Add custom colors */
+  --color-job-ready-bg: #F4FEFF99;
+  /* With transparency */
+  --color-job-ready-bg-solid: #F4FEFF;
+
+  /* Footer colors */
+  --color-footer-bg: #F2F2F2;
+  --color-footer-bottom-bg: #113744;
+  --color-footer-text: #000000;
+  /* Black text */
+
+
+}
+
+/* Now that the colors are defined in the theme above, 
+   Tailwind knows what 'bg-background' and 'text-foreground' mean.
+*/
+@layer base {
+  body {
+    @apply bg-background text-foreground overflow-x-hidden;
+  }
+}
+
+
+
+@layer utilities {
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
+
+@layer components {
+  .swiper-pagination-bullet {
+    @apply w-2 h-2 bg-slate-300 opacity-100 transition-all duration-300;
+  }
+
+  .swiper-pagination-bullet-active {
+    @apply w-6 bg-primary;
+  }
+}
+
+
+@layer utilities {
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
+
+/* Add to globals.css */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animation-delay-1000 {
+  animation-delay: 1s;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}

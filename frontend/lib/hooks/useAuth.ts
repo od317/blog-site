@@ -14,11 +14,12 @@ export function useAuth() {
     logout,
     checkAuth,
     clearError,
+    verifyEmail, // Add this from the store
   } = useAuthStore();
 
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
   const RequireAuth = (redirectTo: string = "/login") => {
     useEffect(() => {
@@ -46,6 +47,7 @@ export function useAuth() {
     logout,
     checkAuth,
     clearError,
+    verifyEmail, // Return it here
     RequireAuth,
     RequireGuest,
   };

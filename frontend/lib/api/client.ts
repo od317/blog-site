@@ -1,4 +1,5 @@
 import { ApiError } from "@/types/auth";
+import { config } from "../config";
 
 export class ApiErrorClass extends Error {
   status: number;
@@ -34,11 +35,9 @@ export class ApiClient {
   private baseUrl: string;
   private defaultTimeout: number = 30000; // 30 seconds
 
-  constructor(
-    baseUrl: string = process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:5000/api",
-  ) {
-    this.baseUrl = baseUrl;
+  constructor() {
+    this.baseUrl = config.apiUrl;
+    console.log("🔧 API Client initialized with baseUrl:", this.baseUrl);
   }
 
   private async fetchWithTimeout(

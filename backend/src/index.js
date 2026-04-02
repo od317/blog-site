@@ -12,6 +12,13 @@ const server = http.createServer(app);
 
 // ========== CORS CONFIGURATION - FIX FOR RENDER ==========
 // Allow all Render subdomains and localhost
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "https://blog-frontend-i0w1.onrender.com", // Your exact frontend URL
+  /\.onrender\.com$/, // Allow any onrender subdomain
+];
+
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl)
@@ -19,20 +26,22 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // Allow localhost for development
-    if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-      return callback(null, true);
-    }
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some((pattern) => {
+      if (pattern instanceof RegExp) {
+        return pattern.test(origin);
+      }
+      return pattern === origin;
+    });
 
-    // Allow any onrender.com subdomain (production)
-    if (origin.includes("onrender.com")) {
-      return callback(null, true);
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log("CORS blocked origin:", origin);
+      callback(new Error(`CORS policy does not allow ${origin}`));
     }
-
-    console.log("CORS blocked origin:", origin);
-    callback(new Error(`CORS policy does not allow ${origin}`));
   },
-  credentials: true,
+  credentials: true, // Important for cookies
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
@@ -40,7 +49,7 @@ const corsOptions = {
     "Accept",
     "X-Requested-With",
   ],
-  exposedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["Content-Type", "Authorization", "Set-Cookie"],
 };
 
 app.use(cors(corsOptions));

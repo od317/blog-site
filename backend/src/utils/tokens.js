@@ -29,28 +29,41 @@ const verifyRefreshToken = (token) => {
 };
 
 const setTokenCookies = (res, accessToken, refreshToken) => {
+  const isProduction = process.env.NODE_ENV === "production";
+  const isSecure = isProduction; // Only secure in production
+
   // Set access token cookie (short-lived)
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isSecure,
+    sameSite: "none", // Important for cross-domain cookies
     maxAge: 15 * 60 * 1000, // 15 minutes
     path: "/",
+    domain: isProduction ? ".onrender.com" : undefined, // Allow subdomains
   });
 
   // Set refresh token cookie (long-lived)
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isSecure,
+    sameSite: "none", // Important for cross-domain cookies
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: "/api/auth/refresh", // Only sent to refresh endpoint
+    path: "/api/auth/refresh",
+    domain: isProduction ? ".onrender.com" : undefined, // Allow subdomains
   });
 };
 
 const clearTokenCookies = (res) => {
-  res.clearCookie("accessToken", { path: "/" });
-  res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+  const isProduction = process.env.NODE_ENV === "production";
+
+  res.clearCookie("accessToken", {
+    path: "/",
+    domain: isProduction ? ".onrender.com" : undefined,
+  });
+  res.clearCookie("refreshToken", {
+    path: "/api/auth/refresh",
+    domain: isProduction ? ".onrender.com" : undefined,
+  });
 };
 
 module.exports = {

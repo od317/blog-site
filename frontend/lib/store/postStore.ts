@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api } from "@/lib/api/client";
+import { config } from "@/lib/config";
 
 export interface Post {
   id: string;
@@ -61,9 +62,10 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
       console.log("=== POST STORE CREATE ===");
       console.log("Sending post data:", data);
+      console.log("Using API URL:", config.apiUrl);
 
-      // Make the API call
-      const response = await fetch("http://localhost:5000/api/posts", {
+      // Make the API call using config URL
+      const response = await fetch(`${config.apiUrl}/posts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

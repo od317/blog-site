@@ -1,15 +1,18 @@
 import { io, Socket } from "socket.io-client";
+import { config } from "@/lib/config";
 
 let socket: Socket | null = null;
 
 export const getSocket = () => {
   if (!socket) {
-    const SOCKET_URL =
-      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000";
+    const SOCKET_URL = config.socketUrl;
+    console.log("🔌 Socket connecting to:", SOCKET_URL);
 
     socket = io(SOCKET_URL, {
       autoConnect: false,
       transports: ["websocket"],
+      path: "/socket.io/",
+      withCredentials: true,
     });
   }
   return socket;
@@ -22,13 +25,12 @@ export const connectSocket = (token: string) => {
     socket.connect();
 
     socket.on("connect", () => {
-      console.log("Socket connected");
+      console.log("Socket connected to:", config.socketUrl);
       socket.emit("authenticate", token);
     });
 
     socket.on("authenticated", (data) => {
       console.log("Socket authenticated:", data);
-      // Subscribe to feed after authentication
       socket.emit("subscribe-feed");
     });
 

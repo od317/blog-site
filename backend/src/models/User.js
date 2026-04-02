@@ -5,7 +5,8 @@ const { v4: uuidv4 } = require("uuid");
 class User {
   // Create users table
   static async createTable() {
-    const query = `
+    // First, create the table without the refresh_token index
+    const createTableQuery = `
       CREATE TABLE IF NOT EXISTS users (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
@@ -19,19 +20,117 @@ class User {
         verification_token_expires TIMESTAMP,
         reset_password_token VARCHAR(255),
         reset_password_expires TIMESTAMP,
+        refresh_token VARCHAR(500),
+        refresh_token_expires TIMESTAMP,
         followers_count INTEGER DEFAULT 0,
         following_count INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      
-      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-      CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-      CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token);
     `;
 
-    await pool.query(query);
+    await pool.query(createTableQuery);
     console.log("✅ Users table ready");
+
+    // Now create indexes separately
+    await this.createIndexes();
+  }
+
+  // Create indexes separately
+  static async createIndexes() {
+    try {
+      // Check if email index exists
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
+      `);
+
+      // Check if username index exists
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
+      `);
+
+      // Check if refresh_token column exists before creating index
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'refresh_token'
+      `);
+
+      if (columnCheck.rows.length > 0) {
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_users_refresh_token ON users(refresh_token)
+        `);
+      }
+
+      console.log("✅ Indexes created/verified");
+    } catch (error) {
+      console.error("Error creating indexes:", error.message);
+    }
+  }
+
+  // Add missing columns for existing databases
+  static async addMissingColumns() {
+    try {
+      // Check if refresh_token column exists
+      const checkQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'refresh_token'
+      `;
+      const result = await pool.query(checkQuery);
+
+      if (result.rows.length === 0) {
+        console.log("Adding refresh_token columns...");
+
+        // Add columns
+        await pool.query(`
+          ALTER TABLE users 
+          ADD COLUMN IF NOT EXISTS refresh_token VARCHAR(500),
+          ADD COLUMN IF NOT EXISTS refresh_token_expires TIMESTAMP
+        `);
+
+        // Create index after columns exist
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_users_refresh_token ON users(refresh_token)
+        `);
+
+        console.log("✅ Refresh token columns added");
+      } else {
+        console.log("Refresh token columns already exist");
+      }
+    } catch (error) {
+      console.error("Error adding columns:", error.message);
+    }
+  }
+
+  // Save refresh token
+  static async saveRefreshToken(userId, refreshToken, expiresAt) {
+    const query = `
+      UPDATE users 
+      SET refresh_token = $1, refresh_token_expires = $2
+      WHERE id = $3
+    `;
+    await pool.query(query, [refreshToken, expiresAt, userId]);
+  }
+
+  // Get user by refresh token
+  static async findByRefreshToken(refreshToken) {
+    const query = `
+      SELECT * FROM users 
+      WHERE refresh_token = $1 AND refresh_token_expires > CURRENT_TIMESTAMP
+    `;
+    const result = await pool.query(query, [refreshToken]);
+    return result.rows[0];
+  }
+
+  // Clear refresh token (for logout)
+  static async clearRefreshToken(userId) {
+    const query = `
+      UPDATE users 
+      SET refresh_token = NULL, refresh_token_expires = NULL
+      WHERE id = $1
+    `;
+    await pool.query(query, [userId]);
   }
 
   // Create user

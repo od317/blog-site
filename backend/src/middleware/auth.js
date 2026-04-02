@@ -3,12 +3,15 @@ const User = require("../models/User");
 
 const authMiddleware = async (req, res, next) => {
   try {
-    console.log("\n=== AUTH MIDDLEWARE ===");
-    console.log("Headers:", req.headers);
-    console.log("Body before auth:", req.body);
+    // Try to get token from cookie first, then from Authorization header
+    let token = req.cookies.accessToken;
 
-    const token = req.headers.authorization?.replace("Bearer ", "");
-    console.log("Token present:", !!token);
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
 
     if (!token) {
       return res.status(401).json({ error: "No token provided" });
@@ -23,11 +26,8 @@ const authMiddleware = async (req, res, next) => {
 
     req.user = user;
     req.userId = user.id;
-    console.log("Auth successful for user:", user.id);
-    console.log("Body after auth:", req.body);
     next();
   } catch (error) {
-    console.error("Auth error:", error);
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({ error: "Invalid token" });
     }

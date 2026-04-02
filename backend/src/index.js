@@ -1,6 +1,7 @@
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const { Server } = require("socket.io");
 const dotenv = require("dotenv");
 
@@ -44,7 +45,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// REMOVED: app.options("*", cors(corsOptions)); - This line causes the error
+// ========== COOKIE PARSER ==========
+app.use(cookieParser());
 
 // ========== BODY PARSERS ==========
 app.use(express.json({ limit: "10mb" }));

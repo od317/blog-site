@@ -26,6 +26,8 @@ const loginValidation = [
 // Routes
 router.post("/register", registerValidation, authController.register);
 router.post("/login", loginValidation, authController.login);
+router.post("/refresh", authController.refreshToken); // Add refresh route
+router.post("/logout", authMiddleware, authController.logout); // Add logout route
 router.get("/verify/:token", authController.verifyEmail);
 router.get("/me", authMiddleware, authController.getMe);
 

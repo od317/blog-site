@@ -1,15 +1,17 @@
 const User = require("../models/User");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
 const { sendVerificationEmail } = require("../utils/email");
 const crypto = require("crypto");
+const {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  setTokenCookies,
+  clearTokenCookies,
+} = require("../utils/tokens");
 
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || "7d",
-  });
-};
+// Remove the duplicate User declaration - only declare it once at the top
 
 // Register new user
 exports.register = async (req, res) => {
@@ -45,24 +47,37 @@ exports.register = async (req, res) => {
     const verificationExpires = new Date();
     verificationExpires.setHours(verificationExpires.getHours() + 24);
 
-    // Save verification token
     await User.saveVerificationToken(
       user.id,
       verificationToken,
       verificationExpires,
     );
 
-    // Send verification email (don't await to avoid blocking)
+    // Send verification email
     sendVerificationEmail(email, verificationToken).catch(console.error);
 
-    // Generate JWT
-    const token = generateToken(user.id);
+    // Generate tokens
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+
+    // Save refresh token to database
+    const refreshExpires = new Date();
+    refreshExpires.setDate(refreshExpires.getDate() + 7);
+    await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
+
+    // Set cookies
+    setTokenCookies(res, accessToken, refreshToken);
 
     res.status(201).json({
       message:
         "Registration successful! Please check your email to verify your account.",
-      user,
-      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        full_name: user.full_name,
+        is_verified: false,
+      },
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -91,15 +106,20 @@ exports.login = async (req, res) => {
     }
 
     // if (!user.is_verified) {
-    //   return res
-    //     .status(401)
-    //     .json({
-    //       error:
-    //         "Please verify your email first. Check your inbox for the verification link.",
-    //     });
+    //   return res.status(401).json({ error: "Please verify your email first." });
     // }
 
-    const token = generateToken(user.id);
+    // Generate tokens
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+
+    // Save refresh token to database
+    const refreshExpires = new Date();
+    refreshExpires.setDate(refreshExpires.getDate() + 7);
+    await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
+
+    // Set cookies
+    setTokenCookies(res, accessToken, refreshToken);
 
     const userData = {
       id: user.id,
@@ -117,11 +137,83 @@ exports.login = async (req, res) => {
     res.json({
       message: "Login successful",
       user: userData,
-      token,
     });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Login failed. Please try again." });
+  }
+};
+
+// Refresh token endpoint
+exports.refreshToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({ error: "No refresh token provided" });
+    }
+
+    // Verify refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) {
+      return res
+        .status(401)
+        .json({ error: "Invalid or expired refresh token" });
+    }
+
+    // Check if refresh token exists in database
+    const user = await User.findByRefreshToken(refreshToken);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid refresh token" });
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(user.id);
+
+    // Set new access token cookie
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: "/",
+    });
+
+    res.json({ message: "Token refreshed successfully" });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.status(500).json({ error: "Failed to refresh token" });
+  }
+};
+
+// Logout user
+exports.logout = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    if (userId) {
+      await User.clearRefreshToken(userId);
+    }
+
+    clearTokenCookies(res);
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ error: "Logout failed" });
+  }
+};
+
+// Get current user
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error("Get user error:", error);
+    res.status(500).json({ error: "Failed to get user data" });
   }
 };
 
@@ -142,19 +234,5 @@ exports.verifyEmail = async (req, res) => {
   } catch (error) {
     console.error("Verification error:", error);
     res.status(500).json({ error: "Email verification failed" });
-  }
-};
-
-// Get current user
-exports.getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    res.json(user);
-  } catch (error) {
-    console.error("Get user error:", error);
-    res.status(500).json({ error: "Failed to get user data" });
   }
 };

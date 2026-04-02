@@ -1,29 +1,20 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  images: {
-    unoptimized: true,
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
-      {
-        protocol: "https",
-        hostname: "online-courses-dashobard-main-rx01ou.laravel.cloud.com",
-      },
-    ],
-  },
-  output: "standalone",
-  // Hardcode for Render deployment
-  env: {
-    NEXT_PUBLIC_API_URL: "https://blog-backend-5dai.onrender.com/api",
-    NEXT_PUBLIC_WS_URL: "https://blog-backend-5dai.onrender.com",
-    NEXT_PUBLIC_SOCKET_URL: "https://blog-backend-5dai.onrender.com",
-  },
+// Get config from environment variables
+export const config = {
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  wsUrl: process.env.NEXT_PUBLIC_WS_URL || "http://localhost:5000",
+  socketUrl: process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000",
 };
 
-console.log("🔨 Next.js Build with hardcoded Render URLs");
-console.log("API URL:", "https://blog-backend-5dai.onrender.com/api");
-
-export default nextConfig;
+// Log config for debugging (only in browser)
+if (typeof window !== "undefined") {
+  console.log("🔧 App Config:", {
+    apiUrl: config.apiUrl,
+    wsUrl: config.wsUrl,
+    socketUrl: config.socketUrl,
+    fromEnv: {
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+      NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+      NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
+    },
+  });
+}

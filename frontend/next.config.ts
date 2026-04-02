@@ -9,26 +9,21 @@ const nextConfig: NextConfig = {
         hostname: "images.unsplash.com",
       },
       {
-        protocol: "https", 
+        protocol: "https",
         hostname: "online-courses-dashobard-main-rx01ou.laravel.cloud.com",
       },
     ],
   },
-  // Add environment variables that should be available at build time
+  output: "standalone",
+  // Hardcode for Render deployment
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5000',
-    NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000',
+    NEXT_PUBLIC_API_URL: "https://blog-backend-5dai.onrender.com/api",
+    NEXT_PUBLIC_WS_URL: "https://blog-backend-5dai.onrender.com",
+    NEXT_PUBLIC_SOCKET_URL: "https://blog-backend-5dai.onrender.com",
   },
-  // Output standalone for better deployment
-  output: 'standalone',
 };
 
-// Log during build (this will show in Render build logs)
-console.log('🔨 Next.js Build Configuration:');
-console.log('NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-console.log('NEXT_PUBLIC_WS_URL:', process.env.NEXT_PUBLIC_WS_URL);
-console.log('NEXT_PUBLIC_SOCKET_URL:', process.env.NEXT_PUBLIC_SOCKET_URL);
-console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log("🔨 Next.js Build with hardcoded Render URLs");
+console.log("API URL:", "https://blog-backend-5dai.onrender.com/api");
 
 export default nextConfig;

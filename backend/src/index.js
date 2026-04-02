@@ -44,8 +44,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Handle preflight requests
-app.options("*", cors(corsOptions));
+// REMOVED: app.options("*", cors(corsOptions)); - This line causes the error
 
 // ========== BODY PARSERS ==========
 app.use(express.json({ limit: "10mb" }));

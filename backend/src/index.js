@@ -60,6 +60,16 @@ initializeDatabase().then(() => {
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
       credentials: true,
     },
+    // Use polling only - more reliable on free tier
+    transports: ["polling"],
+    // Increase timeouts to handle spin-up delay
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    // Allow longer connection time for spin-up
+    connectTimeout: 45000,
+    // Enable upgrading but with polling as base
+    allowUpgrades: true,
+    upgradeTimeout: 10000,
   });
 
   app.set("io", io);
@@ -114,6 +124,11 @@ initializeDatabase().then(() => {
   // Socket.io connection handling
   io.on("connection", (socket) => {
     console.log("🔌 New client connected:", socket.id);
+
+    // Handle ping for keep-alive
+    socket.on("ping", () => {
+      socket.emit("pong");
+    });
 
     socket.on("authenticate", (token) => {
       try {

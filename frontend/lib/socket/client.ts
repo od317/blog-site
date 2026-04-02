@@ -2,6 +2,8 @@ import { io, Socket } from "socket.io-client";
 import { config } from "@/lib/config";
 
 let socket: Socket | null = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
 
 export const getSocket = () => {
   if (!socket) {
@@ -10,9 +12,39 @@ export const getSocket = () => {
 
     socket = io(SOCKET_URL, {
       autoConnect: false,
-      transports: ["websocket"],
-      path: "/socket.io/",
+      // Use polling only for free tier reliability
+      transports: ["polling"],
+      // Reconnection settings
+      reconnection: true,
+      reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      // Timeouts
+      timeout: 30000,
+      // With credentials
       withCredentials: true,
+    });
+
+    // Handle connection events
+    socket.on("connect", () => {
+      console.log("✅ Socket connected successfully");
+      reconnectAttempts = 0;
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("❌ Socket connection error:", error.message);
+      reconnectAttempts++;
+      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.log("Max reconnection attempts reached, giving up");
+      }
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("🔌 Socket disconnected:", reason);
+      if (reason === "io server disconnect") {
+        // Server disconnected, try to reconnect
+        socket?.connect();
+      }
     });
   }
   return socket;
@@ -22,20 +54,22 @@ export const connectSocket = (token: string) => {
   const socket = getSocket();
 
   if (!socket.connected) {
+    console.log("Connecting socket...");
     socket.connect();
 
-    socket.on("connect", () => {
-      console.log("Socket connected to:", config.socketUrl);
+    // Wait for connection before authenticating
+    socket.once("connect", () => {
+      console.log("Authenticating socket with token...");
       socket.emit("authenticate", token);
     });
 
     socket.on("authenticated", (data) => {
-      console.log("Socket authenticated:", data);
+      console.log("✅ Socket authenticated:", data);
       socket.emit("subscribe-feed");
     });
 
     socket.on("auth-error", (error) => {
-      console.error("Socket auth error:", error);
+      console.error("❌ Socket auth error:", error);
     });
   }
 
@@ -49,7 +83,7 @@ export const disconnectSocket = () => {
   }
 };
 
-// Event listeners for real-time updates
+// Keep your existing event listeners...
 export const onNewPost = (callback: (post: any) => void) => {
   const socket = getSocket();
   socket.on("new-post", callback);

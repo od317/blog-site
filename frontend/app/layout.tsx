@@ -1,7 +1,7 @@
 "use client";
 
 import { useRealtime } from "@/lib/hooks/useRealtime";
-import { DebugAuth } from "@/components/DebugAuth";
+import { useKeepAlive } from "@/lib/hooks/useKeepAlive";
 import "./globals.css";
 
 export default function RootLayout({
@@ -9,14 +9,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Initialize realtime connection when authenticated
   useRealtime();
+  useKeepAlive(); // Add this to keep service alive
 
   return (
     <html lang="en">
       <body>
         <main>{children}</main>
-        <DebugAuth /> {/* Add this to see auth state */}
       </body>
     </html>
   );

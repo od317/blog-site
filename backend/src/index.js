@@ -88,10 +88,11 @@ app.set("io", io);
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
 const postRoutes = require("./routes/posts.routes");
-
+const adminRoutes = require("./routes/admin.routes");
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ========== HEALTH CHECK ==========
 app.get("/api/health", (req, res) => {

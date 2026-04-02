@@ -50,17 +50,18 @@ export const getSocket = () => {
   return socket;
 };
 
-export const connectSocket = (token: string) => {
+export const connectSocket = () => {
   const socket = getSocket();
 
   if (!socket.connected) {
     console.log("Connecting socket...");
     socket.connect();
 
-    // Wait for connection before authenticating
+    // No need to authenticate manually - cookies are sent automatically
     socket.once("connect", () => {
-      console.log("Authenticating socket with token...");
-      socket.emit("authenticate", token);
+      console.log(
+        "Socket connected, authentication via cookie will happen automatically",
+      );
     });
 
     socket.on("authenticated", (data) => {

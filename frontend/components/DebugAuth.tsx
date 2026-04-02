@@ -3,7 +3,7 @@
 import { useAuthStore } from "@/lib/store/authStore";
 
 export function DebugAuth() {
-  const { user, token, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
 
   const checkLocalStorage = () => {
     const stored = localStorage.getItem("auth-storage");
@@ -11,7 +11,6 @@ export function DebugAuth() {
     if (stored) {
       const parsed = JSON.parse(stored);
       console.log("Parsed localStorage:", parsed);
-      console.log("Token:", parsed.state?.token);
     }
   };
 
@@ -21,7 +20,6 @@ export function DebugAuth() {
         Auth Status: {isAuthenticated ? "✅ Logged in" : "❌ Not logged in"}
       </div>
       <div>User: {user?.username || "None"}</div>
-      <div>Token: {token ? `${token.substring(0, 20)}...` : "No token"}</div>
       <button
         onClick={checkLocalStorage}
         className="mt-2 bg-blue-500 px-2 py-1 rounded"

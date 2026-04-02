@@ -7,10 +7,11 @@ import { useAuthStore } from "@/lib/store/authStore";
 export default function SocketStatusPage() {
   const [status, setStatus] = useState("Disconnected");
   const [transport, setTransport] = useState("N/A");
-  const { token, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore(); // Remove token from here
 
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (isAuthenticated) {
+      // Only check isAuthenticated
       const socket = getSocket();
 
       const updateStatus = () => {
@@ -33,7 +34,7 @@ export default function SocketStatusPage() {
         socket.off("disconnect", updateStatus);
       };
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated]); // Remove token from dependency array
 
   return (
     <div className="p-8">

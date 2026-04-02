@@ -52,6 +52,7 @@ export class ApiClient {
     try {
       const response = await fetch(url, {
         ...fetchOptions,
+        credentials: "include",
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

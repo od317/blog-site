@@ -15,17 +15,21 @@ export const authApi = {
     return api.post<AuthResponse>("/auth/login", credentials);
   },
 
+  logout: async (): Promise<{ message: string }> => {
+    return api.post<{ message: string }>("/auth/logout");
+  },
+
   verifyEmail: async (
     token: string,
   ): Promise<{ message: string; user: User }> => {
     return api.get(`/auth/verify/${token}`);
   },
 
-  getMe: async (token: string): Promise<User> => {
-    return api.get<User>("/auth/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  getMe: async (): Promise<User> => {
+    return api.get<User>("/auth/me");
+  },
+
+  refreshToken: async (): Promise<{ message: string }> => {
+    return api.post<{ message: string }>("/auth/refresh");
   },
 };

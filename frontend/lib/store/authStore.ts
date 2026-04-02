@@ -15,7 +15,7 @@ interface AuthStore extends AuthState {
     password: string;
     full_name?: string;
   }) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -25,8 +25,7 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
-      isAuthenticated: false,
+      isAuthenticated: false, // Remove token from state
       isLoading: false,
       error: null,
 
@@ -38,8 +37,7 @@ export const useAuthStore = create<AuthStore>()(
 
           set({
             user: response.user,
-            token: response.token,
-            isAuthenticated: true,
+            isAuthenticated: true, // No token stored!
             isLoading: false,
             error: null,
           });
@@ -64,8 +62,7 @@ export const useAuthStore = create<AuthStore>()(
 
           set({
             user: response.user,
-            token: response.token,
-            isAuthenticated: true,
+            isAuthenticated: true, // No token stored!
             isLoading: false,
             error: null,
           });
@@ -82,11 +79,17 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      logout: () => {
+      logout: async () => {
+        set({ isLoading: true });
+        try {
+          await authApi.logout();
+        } catch (error) {
+          console.error("Logout error:", error);
+        }
         set({
           user: null,
-          token: null,
           isAuthenticated: false,
+          isLoading: false,
           error: null,
         });
       },
@@ -113,25 +116,32 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       checkAuth: async () => {
-        const { token, isAuthenticated } = get();
+        const { isAuthenticated } = get();
 
-        if (!token || !isAuthenticated) {
+        if (!isAuthenticated) {
           return;
         }
 
         set({ isLoading: true });
 
         try {
-          const user = await authApi.getMe(token);
+          // Try to get user - cookie is sent automatically
+          const user = await authApi.getMe();
           set({ user, isLoading: false });
         } catch (error) {
-          // Token might be expired
-          set({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
+          // Token might be expired, try to refresh
+          try {
+            await authApi.refreshToken();
+            const user = await authApi.getMe();
+            set({ user, isLoading: false });
+          } catch (refreshError) {
+            // Refresh failed, logout
+            set({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          }
         }
       },
 
@@ -142,10 +152,9 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: "auth-storage",
       partialize: (state) => ({
-        token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
-      }),
+      }), // Remove token from persistence
     },
   ),
 );

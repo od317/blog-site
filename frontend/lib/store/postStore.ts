@@ -52,38 +52,16 @@ export const usePostStore = create<PostStore>((set, get) => ({
   createPost: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const stored = localStorage.getItem("auth-storage");
-      if (!stored) throw new Error("Not authenticated");
-
-      const parsed = JSON.parse(stored);
-      const token = parsed.state?.token;
-
-      if (!token) throw new Error("No token found");
-
       console.log("=== POST STORE CREATE ===");
       console.log("Sending post data:", data);
       console.log("Using API URL:", config.apiUrl);
 
-      // Make the API call using config URL
-      const response = await fetch(`${config.apiUrl}/posts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: data.title,
-          content: data.content,
-        }),
+      // Use the api client instead of fetch - it already handles cookies
+      const post = await api.post<Post>("/posts", {
+        title: data.title,
+        content: data.content,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create post");
-      }
-
-      // Don't add the post here - wait for WebSocket event
-      // The WebSocket will emit 'new-post' which will call addNewPost
       console.log("Post created successfully, waiting for WebSocket event");
 
       set({ isLoading: false });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePostStore } from "@/lib/store/postStore";
+import { useNotification } from "@/lib/hooks/useNotification";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -11,31 +12,24 @@ export function CreatePostForm() {
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { createPost } = usePostStore();
+  const { showSuccess, showError } = useNotification();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log("=== FORM SUBMITTED ===");
-    console.log("Title:", title);
-    console.log("Content:", content);
-
     if (!title.trim() || !content.trim()) {
-      console.log("Validation failed: missing title or content");
+      showError("Please enter both title and content");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      console.log("Calling createPost with:", {
-        title: title.trim(),
-        content: content.trim(),
-      });
       await createPost({ title: title.trim(), content: content.trim() });
-      console.log("Post created successfully");
+      showSuccess("Post created!");
       setTitle("");
       setContent("");
-    } catch (error) {
-      console.error("Failed to create post:", error);
+    } catch (error: any) {
+      showError(error.message || "Failed to create post");
     } finally {
       setIsSubmitting(false);
     }

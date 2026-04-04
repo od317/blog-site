@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePostStore } from "@/lib/store/postStore";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Card } from "@/components/ui/Card";
-import { usePostStore } from "@/lib/store/postStore";
+import { PostItem } from "./PostItem";
 
 export function PostList() {
   const { posts, isLoading, error, fetchPosts } = usePostStore();
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [fetchPosts]);
 
   if (isLoading && posts.length === 0) {
     return (
@@ -35,20 +36,7 @@ export function PostList() {
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <Card key={post.id} className="p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">{post.title}</h3>
-              <p className="mt-2 text-gray-700">{post.content}</p>
-              <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
-                <span>By {post.username}</span>
-                <span>{new Date(post.created_at).toLocaleDateString()}</span>
-                <span>{post.like_count} likes</span>
-                <span>{post.comment_count} comments</span>
-              </div>
-            </div>
-          </div>
-        </Card>
+        <PostItem key={post.id} post={post} />
       ))}
     </div>
   );

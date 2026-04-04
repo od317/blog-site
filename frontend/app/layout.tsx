@@ -2,6 +2,7 @@
 
 import { useRealtime } from "@/lib/hooks/useRealtime";
 import { useKeepAlive } from "@/lib/hooks/useKeepAlive";
+import { NotificationContainer } from "@/components/ui/NotificationContainer";
 import "./globals.css";
 
 export default function RootLayout({
@@ -10,12 +11,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   useRealtime();
-  useKeepAlive(); // Add this to keep service alive
+  useKeepAlive();
 
   return (
     <html lang="en">
       <body>
         <main>{children}</main>
+        <NotificationContainer />
       </body>
     </html>
   );

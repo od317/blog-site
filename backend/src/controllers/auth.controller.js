@@ -86,6 +86,7 @@ exports.register = async (req, res) => {
 };
 
 // Login user
+// Login user - return token in response
 exports.login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -105,9 +106,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // if (!user.is_verified) {
-    //   return res.status(401).json({ error: "Please verify your email first." });
-    // }
+    if (!user.is_verified) {
+      return res.status(401).json({ error: "Please verify your email first." });
+    }
 
     // Generate tokens
     const accessToken = generateAccessToken(user.id);
@@ -117,9 +118,6 @@ exports.login = async (req, res) => {
     const refreshExpires = new Date();
     refreshExpires.setDate(refreshExpires.getDate() + 7);
     await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
-
-    // Set cookies
-    setTokenCookies(res, accessToken, refreshToken);
 
     const userData = {
       id: user.id,
@@ -134,13 +132,81 @@ exports.login = async (req, res) => {
       created_at: user.created_at,
     };
 
+    // Return tokens in response body (not cookies)
     res.json({
       message: "Login successful",
       user: userData,
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Login failed. Please try again." });
+  }
+};
+
+// Register user - return token in response
+exports.register = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { username, email, password, full_name } = req.body;
+
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    const existingUsername = await User.findByUsername(username);
+    if (existingUsername) {
+      return res.status(400).json({ error: "Username already taken" });
+    }
+
+    const user = await User.create({
+      username,
+      email,
+      password,
+      full_name,
+    });
+
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const verificationExpires = new Date();
+    verificationExpires.setHours(verificationExpires.getHours() + 24);
+
+    await User.saveVerificationToken(
+      user.id,
+      verificationToken,
+      verificationExpires,
+    );
+    sendVerificationEmail(email, verificationToken).catch(console.error);
+
+    // Generate tokens
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+
+    const refreshExpires = new Date();
+    refreshExpires.setDate(refreshExpires.getDate() + 7);
+    await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
+
+    res.status(201).json({
+      message:
+        "Registration successful! Please check your email to verify your account.",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        full_name: user.full_name,
+        is_verified: false,
+      },
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Registration failed. Please try again." });
   }
 };
 

@@ -5,6 +5,8 @@ import { authApi } from "@/lib/api/auth";
 import { formatError } from "@/lib/utils/errors";
 
 interface AuthStore extends AuthState {
+  token: string | null;
+  refreshToken: string | null;
   login: (
     email: string,
     password: string,
@@ -25,7 +27,9 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
       user: null,
-      isAuthenticated: false, // Remove token from state
+      token: null,
+      refreshToken: null,
+      isAuthenticated: false,
       isLoading: false,
       error: null,
 
@@ -37,7 +41,9 @@ export const useAuthStore = create<AuthStore>()(
 
           set({
             user: response.user,
-            isAuthenticated: true, // No token stored!
+            token: response.accessToken,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
             isLoading: false,
             error: null,
           });
@@ -62,7 +68,9 @@ export const useAuthStore = create<AuthStore>()(
 
           set({
             user: response.user,
-            isAuthenticated: true, // No token stored!
+            token: response.accessToken,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
             isLoading: false,
             error: null,
           });
@@ -88,6 +96,8 @@ export const useAuthStore = create<AuthStore>()(
         }
         set({
           user: null,
+          token: null,
+          refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
           error: null,
@@ -116,32 +126,25 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       checkAuth: async () => {
-        const { isAuthenticated } = get();
+        const { token, isAuthenticated } = get();
 
-        if (!isAuthenticated) {
+        if (!token || !isAuthenticated) {
           return;
         }
 
         set({ isLoading: true });
 
         try {
-          // Try to get user - cookie is sent automatically
-          const user = await authApi.getMe();
+          const user = await authApi.getMe(token);
           set({ user, isLoading: false });
         } catch (error) {
-          // Token might be expired, try to refresh
-          try {
-            await authApi.refreshToken();
-            const user = await authApi.getMe();
-            set({ user, isLoading: false });
-          } catch (refreshError) {
-            // Refresh failed, logout
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-            });
-          }
+          set({
+            user: null,
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
         }
       },
 
@@ -152,9 +155,11 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: "auth-storage",
       partialize: (state) => ({
+        token: state.token,
+        refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
-      }), // Remove token from persistence
+      }),
     },
   ),
 );

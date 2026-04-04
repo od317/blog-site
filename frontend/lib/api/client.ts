@@ -52,7 +52,7 @@ export class ApiClient {
     try {
       const response = await fetch(url, {
         ...fetchOptions,
-        credentials: "include",
+        // Remove credentials: 'include' for now
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -63,9 +63,7 @@ export class ApiClient {
         throw new TimeoutError();
       }
       if (error instanceof Error && error.message === "Failed to fetch") {
-        throw new NetworkError(
-          "Unable to connect to server. Please check your internet connection.",
-        );
+        throw new NetworkError("Unable to connect to server.");
       }
       throw error;
     }

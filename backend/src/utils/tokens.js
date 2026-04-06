@@ -29,41 +29,50 @@ const verifyRefreshToken = (token) => {
 };
 
 const setTokenCookies = (res, accessToken, refreshToken) => {
-  // Explicitly check for Render environment
+  // Detect if we're on Render
   const isRender =
     process.env.RENDER === "true" ||
-    process.env.RENDER_EXTERNAL_URL !== undefined;
+    process.env.RENDER_EXTERNAL_URL !== undefined ||
+    process.env.RENDER_GIT_COMMIT !== undefined;
+
   const isProduction = process.env.NODE_ENV === "production" || isRender;
-  const isSecure = true; // Force secure for Render (HTTPS only)
 
-  console.log("🍪 Setting cookies:", {
-    isProduction,
-    isSecure,
-    environment: process.env.NODE_ENV,
+  // CRITICAL: Different cookie settings for Render vs local
+  const cookieSettings = isRender
+    ? {
+        // For Render - no domain specified
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        // DON'T set domain for Render - let browser handle it
+      }
+    : {
+        // For localhost
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
+      };
+
+  console.log("🍪 Setting cookies with config:", {
     isRender,
+    cookieSettings,
+    frontendUrl: process.env.FRONTEND_URL,
   });
 
-  // Set access token cookie (short-lived)
+  // Set access token cookie
   res.cookie("accessToken", accessToken, {
-    httpOnly: true, // ✅ CHANGED: true for security
-    secure: true, // ✅ CHANGED: always true for Render (HTTPS)
-    sameSite: "none",
+    ...cookieSettings,
     maxAge: 15 * 60 * 1000,
-    path: "/",
-    domain: isProduction ? ".onrender.com" : undefined,
   });
 
-  // Set refresh token cookie (long-lived)
+  // Set refresh token cookie
   res.cookie("refreshToken", refreshToken, {
-    httpOnly: true, // ✅ CHANGED: true for security
-    secure: true, // ✅ CHANGED: always true for Render (HTTPS)
-    sameSite: "none",
+    ...cookieSettings,
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/", // ✅ CHANGED: same path as access token
-    domain: isProduction ? ".onrender.com" : undefined,
   });
 
-  // ✅ Add debug response header to verify cookies are being set
   res.setHeader("X-Cookies-Set", "true");
 };
 

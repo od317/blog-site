@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { loginSchema, LoginInput } from "@/lib/validations/auth";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 
-export function LoginForm() {
+interface LoginFormProps {
+  returnUrl?: string | null;
+}
+
+export function LoginForm({ returnUrl }: LoginFormProps) {
   const router = useRouter();
   const { login, isLoading, error } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -29,7 +32,8 @@ export function LoginForm() {
     const result = await login(data.email, data.password);
 
     if (result.success) {
-      router.push("/");
+      // Redirect to returnUrl or home page
+      router.push(returnUrl || "/");
       router.refresh();
     } else if (result.error) {
       setServerError(result.error);

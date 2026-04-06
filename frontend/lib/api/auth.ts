@@ -25,17 +25,13 @@ export const authApi = {
     return api.get(`/auth/verify/${token}`);
   },
 
-  getMe: async (token: string): Promise<User> => {
-    return api.get<User>("/auth/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  // ✅ No token parameter needed - cookie is sent automatically
+  getMe: async (): Promise<User> => {
+    return api.get<User>("/auth/me");
   },
 
-  refreshToken: async (
-    refreshToken: string,
-  ): Promise<{ accessToken: string }> => {
-    return api.post<{ accessToken: string }>("/auth/refresh", { refreshToken });
+  // ✅ No token parameter needed - refresh token is in cookie
+  refreshToken: async (): Promise<{ message: string }> => {
+    return api.post<{ message: string }>("/auth/refresh");
   },
 };

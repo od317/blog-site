@@ -1,16 +1,16 @@
-import { Metadata } from "next";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 
-export const metadata: Metadata = {
-  title: "Sign In - Blog App",
-  description: "Sign in to your account",
-};
-
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl");
+
   return (
     <AuthLayout title="Welcome Back" subtitle="Sign in to your account">
-      <LoginForm />
+      <LoginForm returnUrl={returnUrl} />
     </AuthLayout>
   );
 }

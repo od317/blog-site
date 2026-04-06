@@ -12,20 +12,15 @@ export const getSocket = () => {
 
     socket = io(SOCKET_URL, {
       autoConnect: false,
-      // Use polling only for free tier reliability
-      transports: ["polling"],
-      // Reconnection settings
+      transports: ["polling", "websocket"],
+      withCredentials: true, // This sends cookies automatically
       reconnection: true,
       reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 10000,
-      // Timeouts
       timeout: 30000,
-      // With credentials
-      withCredentials: true,
     });
 
-    // Handle connection events
     socket.on("connect", () => {
       console.log("✅ Socket connected successfully");
       reconnectAttempts = 0;
@@ -34,17 +29,10 @@ export const getSocket = () => {
     socket.on("connect_error", (error) => {
       console.error("❌ Socket connection error:", error.message);
       reconnectAttempts++;
-      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        console.log("Max reconnection attempts reached, giving up");
-      }
     });
 
     socket.on("disconnect", (reason) => {
       console.log("🔌 Socket disconnected:", reason);
-      if (reason === "io server disconnect") {
-        // Server disconnected, try to reconnect
-        socket?.connect();
-      }
     });
   }
   return socket;
@@ -57,20 +45,9 @@ export const connectSocket = () => {
     console.log("Connecting socket...");
     socket.connect();
 
-    // No need to authenticate manually - cookies are sent automatically
+    // No manual authentication - cookies are sent automatically
     socket.once("connect", () => {
-      console.log(
-        "Socket connected, authentication via cookie will happen automatically",
-      );
-    });
-
-    socket.on("authenticated", (data) => {
-      console.log("✅ Socket authenticated:", data);
-      socket.emit("subscribe-feed");
-    });
-
-    socket.on("auth-error", (error) => {
-      console.error("❌ Socket auth error:", error);
+      console.log("Socket connected, cookies will be sent automatically");
     });
   }
 
@@ -84,7 +61,7 @@ export const disconnectSocket = () => {
   }
 };
 
-// Keep your existing event listeners...
+// Keep your existing event listeners
 export const onNewPost = (callback: (post: any) => void) => {
   const socket = getSocket();
   socket.on("new-post", callback);

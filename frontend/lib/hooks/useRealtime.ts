@@ -13,7 +13,7 @@ import {
 } from "@/lib/socket/client";
 
 export function useRealtime() {
-  const { isAuthenticated, user } = useAuthStore(); // Remove token from here
+  const { isAuthenticated, user } = useAuthStore();
   const {
     addNewPost,
     updatePostInList,
@@ -24,9 +24,8 @@ export function useRealtime() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // Only check isAuthenticated
       console.log("Initializing real-time connection...");
-      const socket = connectSocket(); // No token parameter needed
+      const socket = connectSocket(); // No token parameter
 
       const handleError = (error: any) => {
         console.error("Socket error:", error);

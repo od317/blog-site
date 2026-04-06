@@ -5,8 +5,6 @@ import { authApi } from "@/lib/api/auth";
 import { formatError } from "@/lib/utils/errors";
 
 interface AuthStore extends AuthState {
-  token: string | null;
-  refreshToken: string | null;
   login: (
     email: string,
     password: string,
@@ -19,7 +17,7 @@ interface AuthStore extends AuthState {
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
-  checkAuth: () => Promise<void>;
+  checkAuth: () => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -27,8 +25,6 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
-      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -41,8 +37,6 @@ export const useAuthStore = create<AuthStore>()(
 
           set({
             user: response.user,
-            token: response.accessToken,
-            refreshToken: response.refreshToken,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -68,8 +62,6 @@ export const useAuthStore = create<AuthStore>()(
 
           set({
             user: response.user,
-            token: response.accessToken,
-            refreshToken: response.refreshToken,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -96,8 +88,6 @@ export const useAuthStore = create<AuthStore>()(
         }
         set({
           user: null,
-          token: null,
-          refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
           error: null,
@@ -126,25 +116,47 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       checkAuth: async () => {
-        const { token, isAuthenticated } = get();
+        const { isAuthenticated } = get();
 
-        if (!token || !isAuthenticated) {
-          return;
+        if (!isAuthenticated) {
+          set({ isLoading: false });
+          return false;
         }
 
         set({ isLoading: true });
 
         try {
-          const user = await authApi.getMe(token);
-          set({ user, isLoading: false });
-        } catch (error) {
+          // Cookie is sent automatically, no token needed
+          const user = await authApi.getMe();
           set({
-            user: null,
-            token: null,
-            refreshToken: null,
-            isAuthenticated: false,
+            user,
+            isAuthenticated: true,
             isLoading: false,
           });
+          return true;
+        } catch (error) {
+          console.error("Check auth failed:", error);
+
+          // Try to refresh token
+          try {
+            await authApi.refreshToken();
+            const user = await authApi.getMe();
+            set({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            return true;
+          } catch (refreshError) {
+            // Refresh failed, clear auth state
+            set({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null,
+            });
+            return false;
+          }
         }
       },
 
@@ -155,8 +167,6 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: "auth-storage",
       partialize: (state) => ({
-        token: state.token,
-        refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),

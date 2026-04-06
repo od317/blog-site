@@ -26,8 +26,6 @@ export interface RegisterData {
 export interface AuthResponse {
   message: string;
   user: User;
-  accessToken: string;
-  refreshToken: string;
 }
 
 export interface ApiError {

@@ -1,23 +1,26 @@
-"use client";
-
-import { useRealtime } from "@/lib/hooks/useRealtime";
-import { useKeepAlive } from "@/lib/hooks/useKeepAlive";
-import { NotificationContainer } from "@/components/ui/NotificationContainer";
+import type { Metadata } from "next";
 import "./globals.css";
+import { ClientProviders } from "@/components/providers";
+import { AuthProvider } from "@/components/providers/AuthProvider";
+
+export const metadata: Metadata = {
+  title: "Blog App",
+  description: "A real-time blog platform",
+};
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  useRealtime();
-  useKeepAlive();
-
   return (
     <html lang="en">
       <body>
-        <main>{children}</main>
-        <NotificationContainer />
+        <AuthProvider>
+          <ClientProviders>
+            <main>{children}</main>
+          </ClientProviders>
+        </AuthProvider>
       </body>
     </html>
   );

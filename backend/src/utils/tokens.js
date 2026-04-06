@@ -29,28 +29,42 @@ const verifyRefreshToken = (token) => {
 };
 
 const setTokenCookies = (res, accessToken, refreshToken) => {
-  const isProduction = process.env.NODE_ENV === "production";
-  const isSecure = isProduction; // Only secure in production
+  // Explicitly check for Render environment
+  const isRender =
+    process.env.RENDER === "true" ||
+    process.env.RENDER_EXTERNAL_URL !== undefined;
+  const isProduction = process.env.NODE_ENV === "production" || isRender;
+  const isSecure = true; // Force secure for Render (HTTPS only)
+
+  console.log("🍪 Setting cookies:", {
+    isProduction,
+    isSecure,
+    environment: process.env.NODE_ENV,
+    isRender,
+  });
 
   // Set access token cookie (short-lived)
   res.cookie("accessToken", accessToken, {
-    httpOnly: false,
-    secure: isSecure,
-    sameSite: "none", // Important for cross-domain cookies
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    httpOnly: true, // ✅ CHANGED: true for security
+    secure: true, // ✅ CHANGED: always true for Render (HTTPS)
+    sameSite: "none",
+    maxAge: 15 * 60 * 1000,
     path: "/",
-    domain: isProduction ? ".onrender.com" : undefined, // Allow subdomains
+    domain: isProduction ? ".onrender.com" : undefined,
   });
 
   // Set refresh token cookie (long-lived)
   res.cookie("refreshToken", refreshToken, {
-    httpOnly: false,
-    secure: isSecure,
-    sameSite: "none", // Important for cross-domain cookies
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: "/api/auth/refresh",
-    domain: isProduction ? ".onrender.com" : undefined, // Allow subdomains
+    httpOnly: true, // ✅ CHANGED: true for security
+    secure: true, // ✅ CHANGED: always true for Render (HTTPS)
+    sameSite: "none",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/", // ✅ CHANGED: same path as access token
+    domain: isProduction ? ".onrender.com" : undefined,
   });
+
+  // ✅ Add debug response header to verify cookies are being set
+  res.setHeader("X-Cookies-Set", "true");
 };
 
 const clearTokenCookies = (res) => {
@@ -59,10 +73,17 @@ const clearTokenCookies = (res) => {
   res.clearCookie("accessToken", {
     path: "/",
     domain: isProduction ? ".onrender.com" : undefined,
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
   });
+
   res.clearCookie("refreshToken", {
-    path: "/api/auth/refresh",
+    path: "/", // ✅ CHANGED: match the path used in set
     domain: isProduction ? ".onrender.com" : undefined,
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
   });
 };
 

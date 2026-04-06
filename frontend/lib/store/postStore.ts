@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api } from "@/lib/api/client";
 import { config } from "@/lib/config";
+import { useAuthStore } from "./authStore";
 
 export interface Post {
   id: string;
@@ -15,8 +16,8 @@ export interface Post {
   user_has_liked: boolean;
   created_at: string;
   updated_at: string;
-  isPending?: boolean; // Flag for optimistic posts
-  error?: string; // Error message if creation failed
+  isPending?: boolean;
+  error?: string;
 }
 
 interface PostStore {
@@ -24,7 +25,7 @@ interface PostStore {
   isLoading: boolean;
   error: string | null;
   fetchPosts: () => Promise<void>;
-  createPost: (data: { title: string; content: string }) => Promise<void>;
+  createPost: (data: { title: string; content: string }) => Promise<Post>; // Change to Promise<Post>
   retryPost: (
     postId: string,
     data: { title: string; content: string },
@@ -59,10 +60,11 @@ export const usePostStore = create<PostStore>((set, get) => ({
   createPost: async (data) => {
     const { title, content } = data;
 
+    // Get current user from auth store instead of localStorage
+    const currentUser = useAuthStore.getState().user;
+
     // Generate temporary ID for optimistic post
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    const currentUser = JSON.parse(localStorage.getItem("auth-storage") || "{}")
-      ?.state?.user;
 
     // Create optimistic post
     const optimisticPost: Post = {
@@ -78,7 +80,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
       user_has_liked: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      isPending: true, // Mark as pending
+      isPending: true,
     };
 
     // Add optimistic post to the list immediately
@@ -88,30 +90,11 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }));
 
     try {
-      const stored = localStorage.getItem("auth-storage");
-      if (!stored) throw new Error("Not authenticated");
-
-      const parsed = JSON.parse(stored);
-      const token = parsed.state?.token;
-
-      if (!token) throw new Error("No token found");
-
-      // Make the actual API call
-      const response = await fetch(`${config.apiUrl}/posts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title, content }),
+      // Use the api client instead of fetch - cookies are sent automatically
+      const realPost = await api.post<Post>("/posts", {
+        title,
+        content,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create post");
-      }
-
-      const realPost = await response.json();
 
       // Replace optimistic post with real post
       set((state) => ({
@@ -153,29 +136,11 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }));
 
     try {
-      const stored = localStorage.getItem("auth-storage");
-      if (!stored) throw new Error("Not authenticated");
-
-      const parsed = JSON.parse(stored);
-      const token = parsed.state?.token;
-
-      if (!token) throw new Error("No token found");
-
-      const response = await fetch(`${config.apiUrl}/posts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
+      // Use the api client - cookies are sent automatically
+      const realPost = await api.post<Post>("/posts", {
+        title: data.title,
+        content: data.content,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create post");
-      }
-
-      const realPost = await response.json();
 
       // Replace failed post with real post
       set((state) => ({

@@ -11,8 +11,6 @@ const {
   clearTokenCookies,
 } = require("../utils/tokens");
 
-// Remove the duplicate User declaration - only declare it once at the top
-
 // Register new user
 exports.register = async (req, res) => {
   try {
@@ -23,7 +21,6 @@ exports.register = async (req, res) => {
 
     const { username, email, password, full_name } = req.body;
 
-    // Check if user exists
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
@@ -34,7 +31,6 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: "Username already taken" });
     }
 
-    // Create user
     const user = await User.create({
       username,
       email,
@@ -42,7 +38,6 @@ exports.register = async (req, res) => {
       full_name,
     });
 
-    // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
     const verificationExpires = new Date();
     verificationExpires.setHours(verificationExpires.getHours() + 24);
@@ -52,20 +47,17 @@ exports.register = async (req, res) => {
       verificationToken,
       verificationExpires,
     );
-
-    // Send verification email
     sendVerificationEmail(email, verificationToken).catch(console.error);
 
     // Generate tokens
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
-    // Save refresh token to database
     const refreshExpires = new Date();
     refreshExpires.setDate(refreshExpires.getDate() + 7);
     await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
 
-    // Set cookies
+    // Set cookies ONLY - no tokens in response body
     setTokenCookies(res, accessToken, refreshToken);
 
     res.status(201).json({
@@ -78,6 +70,7 @@ exports.register = async (req, res) => {
         full_name: user.full_name,
         is_verified: false,
       },
+      // REMOVED: accessToken, refreshToken
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -85,8 +78,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user
-// Login user - return token in response
+// Login user - use cookies ONLY
 exports.login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -106,10 +98,6 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // if (!user.is_verified) {
-    //   return res.status(401).json({ error: "Please verify your email first." });
-    // }
-
     // Generate tokens
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
@@ -118,6 +106,9 @@ exports.login = async (req, res) => {
     const refreshExpires = new Date();
     refreshExpires.setDate(refreshExpires.getDate() + 7);
     await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
+
+    // Set cookies ONLY - no tokens in response body
+    setTokenCookies(res, accessToken, refreshToken);
 
     const userData = {
       id: user.id,
@@ -132,12 +123,11 @@ exports.login = async (req, res) => {
       created_at: user.created_at,
     };
 
-    // Return tokens in response body (not cookies)
+    // Return only user data, no tokens
     res.json({
       message: "Login successful",
       user: userData,
-      accessToken,
-      refreshToken,
+      // REMOVED: accessToken, refreshToken
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -145,72 +135,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// Register user - return token in response
-exports.register = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { username, email, password, full_name } = req.body;
-
-    const existingUser = await User.findByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
-    }
-
-    const existingUsername = await User.findByUsername(username);
-    if (existingUsername) {
-      return res.status(400).json({ error: "Username already taken" });
-    }
-
-    const user = await User.create({
-      username,
-      email,
-      password,
-      full_name,
-    });
-
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    const verificationExpires = new Date();
-    verificationExpires.setHours(verificationExpires.getHours() + 24);
-
-    await User.saveVerificationToken(
-      user.id,
-      verificationToken,
-      verificationExpires,
-    );
-    sendVerificationEmail(email, verificationToken).catch(console.error);
-
-    // Generate tokens
-    const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
-
-    const refreshExpires = new Date();
-    refreshExpires.setDate(refreshExpires.getDate() + 7);
-    await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
-
-    res.status(201).json({
-      message:
-        "Registration successful! Please check your email to verify your account.",
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        full_name: user.full_name,
-        is_verified: false,
-      },
-      accessToken,
-      refreshToken,
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({ error: "Registration failed. Please try again." });
-  }
-};
-
-// Refresh token endpoint
+// Refresh token endpoint - read from cookie, return new access token in cookie
 exports.refreshToken = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
@@ -219,7 +144,6 @@ exports.refreshToken = async (req, res) => {
       return res.status(401).json({ error: "No refresh token provided" });
     }
 
-    // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
     if (!decoded) {
       return res
@@ -227,22 +151,22 @@ exports.refreshToken = async (req, res) => {
         .json({ error: "Invalid or expired refresh token" });
     }
 
-    // Check if refresh token exists in database
     const user = await User.findByRefreshToken(refreshToken);
     if (!user) {
       return res.status(401).json({ error: "Invalid refresh token" });
     }
 
-    // Generate new access token
     const newAccessToken = generateAccessToken(user.id);
 
     // Set new access token cookie
     res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 15 * 60 * 1000, // 15 minutes
+      sameSite: "none",
+      maxAge: 15 * 60 * 1000,
       path: "/",
+      domain:
+        process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
     });
 
     res.json({ message: "Token refreshed successfully" });
@@ -269,7 +193,7 @@ exports.logout = async (req, res) => {
   }
 };
 
-// Get current user
+// Get current user - no token needed, cookie is sent automatically
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.userId);

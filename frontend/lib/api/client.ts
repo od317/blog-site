@@ -33,7 +33,7 @@ interface RequestOptions extends RequestInit {
 
 export class ApiClient {
   private baseUrl: string;
-  private defaultTimeout: number = 30000; // 30 seconds
+  private defaultTimeout: number = 30000;
 
   constructor() {
     this.baseUrl = config.apiUrl;
@@ -52,7 +52,7 @@ export class ApiClient {
     try {
       const response = await fetch(url, {
         ...fetchOptions,
-        // Remove credentials: 'include' for now
+        credentials: "include", // ✅ ADD THIS BACK - sends cookies
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

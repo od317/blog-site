@@ -135,41 +135,106 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.validateToken = async (req, res) => {
+  try {
+    // The authMiddleware already validated the token
+    // If we get here, the token is valid
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(401).json({
+        valid: false,
+        error: "User not found",
+      });
+    }
+
+    // Return success with user info
+    res.json({
+      valid: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        is_verified: user.is_verified,
+      },
+    });
+  } catch (error) {
+    console.error("Token validation error:", error);
+    res.status(401).json({
+      valid: false,
+      error: "Invalid token",
+    });
+  }
+};
+
 // Refresh token endpoint - read from cookie, return new access token in cookie
+// In your auth controller
 exports.refreshToken = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    console.log("=== REFRESH TOKEN DEBUG ===");
+    console.log("Cookies received:", req.cookies);
 
-    if (!refreshToken) {
+    const oldRefreshToken = req.cookies.refreshToken;
+
+    if (!oldRefreshToken) {
       return res.status(401).json({ error: "No refresh token provided" });
     }
 
-    const decoded = verifyRefreshToken(refreshToken);
+    console.log("✅ Refresh token found in cookie");
+
+    // Verify the old refresh token
+    const decoded = verifyRefreshToken(oldRefreshToken);
     if (!decoded) {
+      console.log("❌ Refresh token verification failed");
       return res
         .status(401)
         .json({ error: "Invalid or expired refresh token" });
     }
 
-    const user = await User.findByRefreshToken(refreshToken);
+    console.log("✅ Token verified, user ID:", decoded.id);
+
+    // Find user by ID (NOT by refresh token string)
+    const user = await User.findById(decoded.id);
     if (!user) {
+      console.log("❌ User not found");
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    console.log("✅ User found:", user.id);
+
+    // Check if the refresh token matches and is not expired
+    if (user.refresh_token !== oldRefreshToken) {
+      console.log("❌ Refresh token mismatch");
+      console.log("DB token:", user.refresh_token?.substring(0, 50));
+      console.log("Cookie token:", oldRefreshToken.substring(0, 50));
       return res.status(401).json({ error: "Invalid refresh token" });
     }
 
+    if (user.refresh_token_expires < new Date()) {
+      console.log("❌ Refresh token expired in DB");
+      return res.status(401).json({ error: "Refresh token expired" });
+    }
+
+    console.log("✅ Refresh token valid");
+
+    // Generate NEW tokens
     const newAccessToken = generateAccessToken(user.id);
+    const newRefreshToken = generateRefreshToken(user.id);
 
-    // Set new access token cookie
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      maxAge: 15 * 60 * 1000,
-      path: "/",
-      domain:
-        process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
+    // Update database with the NEW refresh token
+    const refreshExpires = new Date();
+    refreshExpires.setDate(refreshExpires.getDate() + 7);
+    await User.saveRefreshToken(user.id, newRefreshToken, refreshExpires);
+
+    console.log("✅ New tokens generated and saved");
+
+    // Set new tokens as cookies
+    setTokenCookies(res, newAccessToken, newRefreshToken);
+
+    res.json({
+      message: "Tokens refreshed successfully",
+      rotated: true,
     });
-
-    res.json({ message: "Token refreshed successfully" });
   } catch (error) {
     console.error("Refresh token error:", error);
     res.status(500).json({ error: "Failed to refresh token" });

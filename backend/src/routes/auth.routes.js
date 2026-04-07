@@ -4,7 +4,7 @@ const { body } = require("express-validator");
 const authController = require("../controllers/auth.controller");
 const authMiddleware = require("../middleware/auth");
 
-// Validation rules
+// Validation rules (keep existing)
 const registerValidation = [
   body("username")
     .isLength({ min: 3, max: 50 })
@@ -26,8 +26,9 @@ const loginValidation = [
 // Routes
 router.post("/register", registerValidation, authController.register);
 router.post("/login", loginValidation, authController.login);
-router.post("/refresh", authController.refreshToken); // Add refresh route
-router.post("/logout", authMiddleware, authController.logout); // Add logout route
+router.post("/refresh", authController.refreshToken);
+router.post("/logout", authMiddleware, authController.logout);
+router.get("/validate", authMiddleware, authController.validateToken); // Add this line
 router.get("/verify/:token", authController.verifyEmail);
 router.get("/me", authMiddleware, authController.getMe);
 

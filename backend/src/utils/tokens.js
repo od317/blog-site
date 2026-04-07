@@ -29,71 +29,63 @@ const verifyRefreshToken = (token) => {
 };
 
 const setTokenCookies = (res, accessToken, refreshToken) => {
-  // Detect if we're on Render
   const isRender =
-    process.env.RENDER === "true" ||
-    process.env.RENDER_EXTERNAL_URL !== undefined ||
-    process.env.RENDER_GIT_COMMIT !== undefined;
-
+    process.env.RENDER === "true" || process.env.RENDER_EXTERNAL_URL;
   const isProduction = process.env.NODE_ENV === "production" || isRender;
 
-  // CRITICAL: Different cookie settings for Render vs local
-  const cookieSettings = isRender
-    ? {
-        // For Render - no domain specified
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: "/",
-        // DON'T set domain for Render - let browser handle it
-      }
-    : {
-        // For localhost
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        path: "/",
-      };
+  // Common cookie settings for both tokens
+  const baseSettings = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  };
 
-  console.log("🍪 Setting cookies with config:", {
-    isRender,
-    cookieSettings,
-    frontendUrl: process.env.FRONTEND_URL,
-  });
-
-  // Set access token cookie
+  // Access token cookie - available everywhere
   res.cookie("accessToken", accessToken, {
-    ...cookieSettings,
-    maxAge: 15 * 60 * 1000,
+    ...baseSettings,
+    maxAge: 15 * 60 * 1000, // 15 minutes
+    path: "/",
   });
 
-  // Set refresh token cookie
+  // Refresh token cookie - also available everywhere (not just /refresh)
+  // This ensures it can be read by the refresh endpoint
   res.cookie("refreshToken", refreshToken, {
-    ...cookieSettings,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    ...baseSettings,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: "/", // Changed from "/api/auth/refresh" to "/"
   });
 
-  res.setHeader("X-Cookies-Set", "true");
+  console.log("🍪 Cookies set with paths:", {
+    accessTokenPath: "/",
+    refreshTokenPath: "/",
+    isProduction,
+  });
 };
 
 const clearTokenCookies = (res) => {
-  const isProduction = process.env.NODE_ENV === "production";
+  const isRender =
+    process.env.RENDER === "true" || process.env.RENDER_EXTERNAL_URL;
+  const isProduction = process.env.NODE_ENV === "production" || isRender;
 
+  const baseSettings = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  };
+
+  // Clear access token
   res.clearCookie("accessToken", {
+    ...baseSettings,
     path: "/",
-    domain: isProduction ? ".onrender.com" : undefined,
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
   });
 
+  // Clear refresh token - use same path as when set
   res.clearCookie("refreshToken", {
-    path: "/", // ✅ CHANGED: match the path used in set
-    domain: isProduction ? ".onrender.com" : undefined,
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    ...baseSettings,
+    path: "/",
   });
+
+  console.log("🍪 Cookies cleared");
 };
 
 module.exports = {

@@ -29,11 +29,14 @@ export class TimeoutError extends Error {
 
 interface RequestOptions extends RequestInit {
   timeout?: number;
+  skipRefresh?: boolean; // Prevent refresh loops
 }
 
 export class ApiClient {
   private baseUrl: string;
   private defaultTimeout: number = 30000;
+  private isRefreshing: boolean = false;
+  private refreshSubscribers: Array<(token: string) => void> = [];
 
   constructor() {
     this.baseUrl = config.apiUrl;
@@ -52,7 +55,7 @@ export class ApiClient {
     try {
       const response = await fetch(url, {
         ...fetchOptions,
-        credentials: "include", // ✅ ADD THIS BACK - sends cookies
+        credentials: "include",
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -63,7 +66,9 @@ export class ApiClient {
         throw new TimeoutError();
       }
       if (error instanceof Error && error.message === "Failed to fetch") {
-        throw new NetworkError("Unable to connect to server.");
+        throw new NetworkError(
+          "Unable to connect to server. Please check your internet connection.",
+        );
       }
       throw error;
     }
@@ -88,9 +93,102 @@ export class ApiClient {
     return data as T;
   }
 
-  async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+  // Refresh token method
+  private async refreshToken(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+      return response.ok;
+    } catch (error) {
+      console.error("Refresh token failed:", error);
+      return false;
+    }
+  }
+
+  // Queue requests while refreshing
+  private onRefreshed(token: string) {
+    this.refreshSubscribers.forEach((callback) => callback(token));
+    this.refreshSubscribers = [];
+  }
+
+  private async attemptRefresh(): Promise<boolean> {
+    if (this.isRefreshing) {
+      // Wait for the ongoing refresh
+      return new Promise((resolve) => {
+        this.refreshSubscribers.push(() => resolve(true));
+      });
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      const success = await this.refreshToken();
+      if (success) {
+        this.onRefreshed("");
+      }
+      return success;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  async request<T>(
+    endpoint: string,
+    options: RequestOptions = {},
+    retryCount: number = 0,
+  ): Promise<T> {
+    const maxRetries = 1;
     const url = `${this.baseUrl}${endpoint}`;
-    const response = await this.fetchWithTimeout(url, {
+
+    try {
+      const response = await this.fetchWithTimeout(url, options);
+
+      // If 401 and we haven't retried yet, try to refresh token
+      if (
+        response.status === 401 &&
+        retryCount < maxRetries &&
+        !options.skipRefresh
+      ) {
+        console.log("🔄 Token expired, attempting refresh...");
+
+        const refreshed = await this.attemptRefresh();
+
+        if (refreshed) {
+          console.log("✅ Token refreshed, retrying request...");
+          // Retry the original request with same options
+          return this.request(endpoint, options, retryCount + 1);
+        } else {
+          console.log("❌ Refresh failed, redirecting to login...");
+          // Clear auth state and redirect to login
+          throw new ApiErrorClass(401, "Session expired. Please login again.");
+        }
+      }
+
+      return this.handleResponse<T>(response);
+    } catch (error) {
+      if (error instanceof ApiErrorClass && error.status === 401) {
+        this.redirectToLogin();
+      }
+      throw error;
+    }
+  }
+
+  private redirectToLogin() {
+    // Clear any stored auth state
+    localStorage.removeItem("auth-storage");
+    // Redirect to login if not already there
+    if (
+      typeof window !== "undefined" &&
+      !window.location.pathname.includes("/login")
+    ) {
+      window.location.href = "/login";
+    }
+  }
+
+  async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -98,7 +196,6 @@ export class ApiClient {
       },
       ...options,
     });
-    return this.handleResponse<T>(response);
   }
 
   async post<T>(
@@ -106,9 +203,8 @@ export class ApiClient {
     data?: any,
     options?: RequestOptions,
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    console.log("sendding", data);
-    const response = await this.fetchWithTimeout(url, {
+    console.log("Sending post data:", data);
+    return this.request<T>(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -117,7 +213,6 @@ export class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
       ...options,
     });
-    return this.handleResponse<T>(response);
   }
 
   async put<T>(
@@ -125,8 +220,7 @@ export class ApiClient {
     data?: any,
     options?: RequestOptions,
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    const response = await this.fetchWithTimeout(url, {
+    return this.request<T>(endpoint, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -135,12 +229,10 @@ export class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
       ...options,
     });
-    return this.handleResponse<T>(response);
   }
 
   async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    const response = await this.fetchWithTimeout(url, {
+    return this.request<T>(endpoint, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -148,7 +240,6 @@ export class ApiClient {
       },
       ...options,
     });
-    return this.handleResponse<T>(response);
   }
 }
 

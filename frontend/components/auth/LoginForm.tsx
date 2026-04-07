@@ -33,7 +33,7 @@ export function LoginForm({ returnUrl }: LoginFormProps) {
 
     if (result.success) {
       // Redirect to returnUrl or home page
-      router.push(returnUrl || "/");
+      router.push("/");
       router.refresh();
     } else if (result.error) {
       setServerError(result.error);

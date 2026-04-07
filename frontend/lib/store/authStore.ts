@@ -19,6 +19,7 @@ interface AuthStore extends AuthState {
   verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
   checkAuth: () => Promise<boolean>;
   clearError: () => void;
+  validateAndRefresh: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -115,48 +116,62 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      checkAuth: async () => {
-        const { isAuthenticated } = get();
+      validateAndRefresh: async (): Promise<boolean> => {
+        try {
+          // First, try to validate the current token
+          const validation = await authApi.validateToken();
 
-        if (!isAuthenticated) {
-          set({ isLoading: false });
+          if (validation.valid) {
+            console.log("✅ Token is valid");
+            return true;
+          }
+
+          // Token is invalid, try to refresh
+          console.log("🔄 Token invalid, attempting refresh...");
+          await authApi.refreshToken();
+
+          // After refresh, validate again
+          const newValidation = await authApi.validateToken();
+          if (newValidation.valid) {
+            console.log("✅ Token refreshed and valid");
+            return true;
+          }
+
+          return false;
+        } catch (error) {
+          console.error("Validate and refresh failed:", error);
           return false;
         }
+      },
 
+      checkAuth: async (): Promise<boolean> => {
         set({ isLoading: true });
 
         try {
-          // Cookie is sent automatically, no token needed
-          const user = await authApi.getMe();
-          set({
-            user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-          return true;
-        } catch (error) {
-          console.error("Check auth failed:", error);
+          // Validate token first
+          const isValid = await get().validateAndRefresh();
 
-          // Try to refresh token
-          try {
-            await authApi.refreshToken();
-            const user = await authApi.getMe();
-            set({
-              user,
-              isAuthenticated: true,
-              isLoading: false,
-            });
-            return true;
-          } catch (refreshError) {
-            // Refresh failed, clear auth state
+          if (!isValid) {
             set({
               user: null,
               isAuthenticated: false,
               isLoading: false,
-              error: null,
             });
             return false;
           }
+
+          // Token is valid, get user data
+          const user = await authApi.getMe();
+          set({ user, isAuthenticated: true, isLoading: false });
+          return true;
+        } catch (error) {
+          console.error("Auth check failed:", error);
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+          return false;
         }
       },
 

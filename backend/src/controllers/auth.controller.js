@@ -79,6 +79,7 @@ exports.register = async (req, res) => {
 };
 
 // Login user - use cookies ONLY
+// Login user - check if email is verified
 exports.login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -98,6 +99,29 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Check if email is verified
+    if (!user.is_verified) {
+      // Generate new verification token
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      const verificationExpires = new Date();
+      verificationExpires.setHours(verificationExpires.getHours() + 24);
+
+      await User.saveVerificationToken(
+        user.id,
+        verificationToken,
+        verificationExpires,
+      );
+
+      // Send new verification email
+      await sendVerificationEmail(email, verificationToken);
+
+      return res.status(401).json({
+        error:
+          "Please verify your email first. A new verification link has been sent to your email.",
+        needsVerification: true,
+      });
+    }
+
     // Generate tokens
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
@@ -107,7 +131,7 @@ exports.login = async (req, res) => {
     refreshExpires.setDate(refreshExpires.getDate() + 7);
     await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
 
-    // Set cookies ONLY - no tokens in response body
+    // Set cookies
     setTokenCookies(res, accessToken, refreshToken);
 
     const userData = {
@@ -123,15 +147,53 @@ exports.login = async (req, res) => {
       created_at: user.created_at,
     };
 
-    // Return only user data, no tokens
     res.json({
       message: "Login successful",
       user: userData,
-      // REMOVED: accessToken, refreshToken
     });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Login failed. Please try again." });
+  }
+};
+
+exports.resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.is_verified) {
+      return res.status(400).json({ error: "Email already verified" });
+    }
+
+    // Generate new verification token
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const verificationExpires = new Date();
+    verificationExpires.setHours(verificationExpires.getHours() + 24);
+
+    await User.saveVerificationToken(
+      user.id,
+      verificationToken,
+      verificationExpires,
+    );
+
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken);
+
+    res.json({
+      message: "Verification email sent successfully. Please check your inbox.",
+    });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({ error: "Failed to send verification email" });
   }
 };
 

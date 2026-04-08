@@ -32,12 +32,11 @@ export function RegisterForm() {
 
     if (result.success) {
       setSuccessMessage(
-        "Registration successful! Please check your email to verify your account.",
+        "Registration successful! Please check your email to verify your account before logging in.",
       );
       setTimeout(() => {
-        router.push("/");
-        router.refresh();
-      }, 3000);
+        router.push("/login");
+      }, 5000);
     } else if (result.error) {
       setServerError(result.error);
     }

@@ -142,14 +142,23 @@ export class ApiClient {
     const maxRetries = 1;
     const url = `${this.baseUrl}${endpoint}`;
 
+    // Skip refresh for auth endpoints
+    const isAuthEndpoint =
+      endpoint.includes("/auth/login") ||
+      endpoint.includes("/auth/register") ||
+      endpoint.includes("/auth/verify") ||
+      endpoint.includes("/auth/resend-verification");
+
     try {
       const response = await this.fetchWithTimeout(url, options);
 
       // If 401 and we haven't retried yet, try to refresh token
+      // Skip for auth endpoints
       if (
         response.status === 401 &&
         retryCount < maxRetries &&
-        !options.skipRefresh
+        !options.skipRefresh &&
+        !isAuthEndpoint // Don't try to refresh for auth endpoints
       ) {
         console.log("🔄 Token expired, attempting refresh...");
 
@@ -157,18 +166,21 @@ export class ApiClient {
 
         if (refreshed) {
           console.log("✅ Token refreshed, retrying request...");
-          // Retry the original request with same options
           return this.request(endpoint, options, retryCount + 1);
         } else {
           console.log("❌ Refresh failed, redirecting to login...");
-          // Clear auth state and redirect to login
           throw new ApiErrorClass(401, "Session expired. Please login again.");
         }
       }
 
       return this.handleResponse<T>(response);
     } catch (error) {
-      if (error instanceof ApiErrorClass && error.status === 401) {
+      // Don't redirect to login for auth endpoints
+      if (
+        error instanceof ApiErrorClass &&
+        error.status === 401 &&
+        !isAuthEndpoint
+      ) {
         this.redirectToLogin();
       }
       throw error;

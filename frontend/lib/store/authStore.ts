@@ -119,6 +119,7 @@ export const useAuthStore = create<AuthStore>()(
       validateAndRefresh: async (): Promise<boolean> => {
         try {
           // First, try to validate the current token
+          console.log("🔍 Validating token...");
           const validation = await authApi.validateToken();
 
           if (validation.valid) {
@@ -138,8 +139,14 @@ export const useAuthStore = create<AuthStore>()(
           }
 
           return false;
-        } catch (error) {
-          console.error("Validate and refresh failed:", error);
+        } catch (error: any) {
+          // Check if it's a 401 error (expected for expired tokens)
+          if (error?.status === 401 || error?.message?.includes("401")) {
+            console.log("⚠️ Token validation returned 401 - not authenticated");
+            return false;
+          }
+          // Log other errors but don't throw
+          console.error("Validate and refresh error:", error?.message || error);
           return false;
         }
       },

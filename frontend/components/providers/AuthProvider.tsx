@@ -1,4 +1,3 @@
-// components/providers/AuthProvider.tsx
 "use client";
 
 import { useAuthStore } from "@/lib/store/authStore";
@@ -6,7 +5,6 @@ import { useEffect, useRef } from "react";
 
 interface AuthProviderProps {
   children: React.ReactNode;
-  // Optional: Skip auth check on certain pages
   skipAuthCheck?: boolean;
 }
 
@@ -14,21 +12,33 @@ export function AuthProvider({
   children,
   skipAuthCheck = false,
 }: AuthProviderProps) {
-  const { checkAuth, isAuthenticated, isLoading } = useAuthStore();
+  const { checkAuth } = useAuthStore();
   const hasCheckedRef = useRef(false);
 
   useEffect(() => {
-    // Only check auth once when component mounts
-    if (!hasCheckedRef.current && !skipAuthCheck) {
-      hasCheckedRef.current = true;
-
-      // Don't await - let it happen in background
-      // This prevents blocking page rendering
-      checkAuth().catch(console.error);
+    // Skip if already checked or skipAuthCheck is true
+    if (hasCheckedRef.current || skipAuthCheck) {
+      return;
     }
+
+    // Quick check for cookies
+    const hasAnyToken =
+      document.cookie.includes("accessToken") ||
+      document.cookie.includes("refreshToken");
+
+    if (!hasAnyToken) {
+      console.log("🔍 No tokens found, skipping auth validation");
+      hasCheckedRef.current = true;
+      return;
+    }
+
+    hasCheckedRef.current = true;
+
+    // Run check in background without blocking
+    checkAuth().catch(() => {
+      // Silently fail - user is not authenticated
+    });
   }, [checkAuth, skipAuthCheck]);
 
-  // Don't block rendering - let children render immediately
-  // Auth state will update when check completes
   return <>{children}</>;
 }

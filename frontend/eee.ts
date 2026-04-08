@@ -23,7 +23,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Get the API URL from environment
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const apiUrl = "http://backend:5000/api";
 
   // Call the backend to validate the token
   try {

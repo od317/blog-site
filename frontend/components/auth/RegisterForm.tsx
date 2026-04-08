@@ -31,12 +31,11 @@ export function RegisterForm() {
     const result = await registerUser(data);
 
     if (result.success) {
-      setSuccessMessage(
-        "Registration successful! Please check your email to verify your account before logging in.",
-      );
+      setSuccessMessage("Registration successful! You are now logged in.");
       setTimeout(() => {
-        router.push("/login");
-      }, 5000);
+        router.push("/");
+        router.refresh();
+      }, 2000);
     } else if (result.error) {
       setServerError(result.error);
     }

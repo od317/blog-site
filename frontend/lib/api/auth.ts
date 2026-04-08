@@ -44,26 +44,6 @@ export const authApi = {
   },
 
   /**
-   * Verify email with token
-   * @param token - Email verification token from URL
-   */
-  verifyEmail: async (
-    token: string,
-  ): Promise<{ message: string; user: User }> => {
-    return api.get(`/auth/verify/${token}`);
-  },
-
-  /**
-   * Resend verification email
-   * @param email - User's email address
-   */
-  resendVerification: async (email: string): Promise<{ message: string }> => {
-    return api.post<{ message: string }>("/auth/resend-verification", {
-      email,
-    });
-  },
-
-  /**
    * Get current user info (requires valid access token cookie)
    */
   getMe: async (): Promise<User> => {

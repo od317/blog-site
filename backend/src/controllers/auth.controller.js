@@ -38,16 +38,9 @@ exports.register = async (req, res) => {
       full_name,
     });
 
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    const verificationExpires = new Date();
-    verificationExpires.setHours(verificationExpires.getHours() + 24);
-
-    await User.saveVerificationToken(
-      user.id,
-      verificationToken,
-      verificationExpires,
-    );
-    sendVerificationEmail(email, verificationToken).catch(console.error);
+    // REMOVED: verification token logic
+    // Instead, set user as verified immediately
+    await User.setVerified(user.id, true);
 
     // Generate tokens
     const accessToken = generateAccessToken(user.id);
@@ -57,20 +50,18 @@ exports.register = async (req, res) => {
     refreshExpires.setDate(refreshExpires.getDate() + 7);
     await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
 
-    // Set cookies ONLY - no tokens in response body
+    // Set cookies
     setTokenCookies(res, accessToken, refreshToken);
 
     res.status(201).json({
-      message:
-        "Registration successful! Please check your email to verify your account.",
+      message: "Registration successful! You are now logged in.",
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         full_name: user.full_name,
-        is_verified: false,
+        is_verified: true,
       },
-      // REMOVED: accessToken, refreshToken
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -79,7 +70,6 @@ exports.register = async (req, res) => {
 };
 
 // Login user - use cookies ONLY
-// Login user - check if email is verified
 exports.login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -99,28 +89,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // Check if email is verified
-    if (!user.is_verified) {
-      // Generate new verification token
-      const verificationToken = crypto.randomBytes(32).toString("hex");
-      const verificationExpires = new Date();
-      verificationExpires.setHours(verificationExpires.getHours() + 24);
-
-      await User.saveVerificationToken(
-        user.id,
-        verificationToken,
-        verificationExpires,
-      );
-
-      // Send new verification email
-      await sendVerificationEmail(email, verificationToken);
-
-      return res.status(401).json({
-        error:
-          "Please verify your email first. A new verification link has been sent to your email.",
-        needsVerification: true,
-      });
-    }
+    // REMOVED: email verification check
 
     // Generate tokens
     const accessToken = generateAccessToken(user.id);
@@ -141,7 +110,7 @@ exports.login = async (req, res) => {
       full_name: user.full_name,
       avatar_url: user.avatar_url,
       bio: user.bio,
-      is_verified: user.is_verified,
+      is_verified: true, // Always true now
       followers_count: user.followers_count,
       following_count: user.following_count,
       created_at: user.created_at,

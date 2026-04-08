@@ -183,6 +183,15 @@ class User {
     await pool.query(query, [token, expiresAt, userId]);
   }
 
+  static async setVerified(userId, isVerified) {
+    const query = `
+    UPDATE users 
+    SET is_verified = $1
+    WHERE id = $2
+  `;
+    await pool.query(query, [isVerified, userId]);
+  }
+
   // Verify email
   static async verifyEmail(token) {
     const query = `

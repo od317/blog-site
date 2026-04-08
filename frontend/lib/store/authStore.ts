@@ -16,7 +16,6 @@ interface AuthStore extends AuthState {
     full_name?: string;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
   checkAuth: () => Promise<boolean>;
   clearError: () => void;
   validateAndRefresh: () => Promise<boolean>;
@@ -93,27 +92,6 @@ export const useAuthStore = create<AuthStore>()(
           isLoading: false,
           error: null,
         });
-      },
-
-      verifyEmail: async (token: string) => {
-        set({ isLoading: true, error: null });
-
-        try {
-          const response = await authApi.verifyEmail(token);
-
-          set((state) => ({
-            user: state.user
-              ? { ...state.user, is_verified: true }
-              : response.user,
-            isLoading: false,
-          }));
-
-          return { success: true };
-        } catch (error) {
-          const formatted = formatError(error);
-          set({ error: formatted.message, isLoading: false });
-          return { success: false, error: formatted.message };
-        }
       },
 
       validateAndRefresh: async (): Promise<boolean> => {

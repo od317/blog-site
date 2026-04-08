@@ -1,4 +1,3 @@
-import { ApiError } from "@/types/auth";
 import { config } from "../config";
 
 export class ApiErrorClass extends Error {
@@ -175,27 +174,7 @@ export class ApiClient {
 
       return this.handleResponse<T>(response);
     } catch (error) {
-      // Don't redirect to login for auth endpoints
-      if (
-        error instanceof ApiErrorClass &&
-        error.status === 401 &&
-        !isAuthEndpoint
-      ) {
-        this.redirectToLogin();
-      }
       throw error;
-    }
-  }
-
-  private redirectToLogin() {
-    // Clear any stored auth state
-    localStorage.removeItem("auth-storage");
-    // Redirect to login if not already there
-    if (
-      typeof window !== "undefined" &&
-      !window.location.pathname.includes("/login")
-    ) {
-      window.location.href = "/login";
     }
   }
 

@@ -126,46 +126,6 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.resendVerification = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    const user = await User.findByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    if (user.is_verified) {
-      return res.status(400).json({ error: "Email already verified" });
-    }
-
-    // Generate new verification token
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    const verificationExpires = new Date();
-    verificationExpires.setHours(verificationExpires.getHours() + 24);
-
-    await User.saveVerificationToken(
-      user.id,
-      verificationToken,
-      verificationExpires,
-    );
-
-    // Send verification email
-    await sendVerificationEmail(email, verificationToken);
-
-    res.json({
-      message: "Verification email sent successfully. Please check your inbox.",
-    });
-  } catch (error) {
-    console.error("Resend verification error:", error);
-    res.status(500).json({ error: "Failed to send verification email" });
-  }
-};
-
 exports.validateToken = async (req, res) => {
   try {
     // The authMiddleware already validated the token

@@ -1,54 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { loginSchema, LoginInput } from "@/lib/validations/auth";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { authApi } from "@/lib/api/auth";
 
 export function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { login, isLoading } = useAuth();
 
   // State management
   const [serverError, setServerError] = useState<string | null>(null);
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [isResending, setIsResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [autoDismissTimer, setAutoDismissTimer] =
     useState<NodeJS.Timeout | null>(null);
-
-  // Check for verification success query param
-  useEffect(() => {
-    const verified = searchParams.get("verified");
-    if (verified === "true") {
-      setSuccessMessage("Email verified successfully! You can now log in.");
-      // Remove the query parameter from URL without refreshing
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
-
-      // Auto-dismiss after 5 seconds
-      const timer = setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
-      setAutoDismissTimer(timer);
-    }
-
-    // Cleanup timer on unmount
-    return () => {
-      if (autoDismissTimer) {
-        clearTimeout(autoDismissTimer);
-      }
-    };
-  }, [searchParams]);
 
   const {
     register,
@@ -65,7 +36,6 @@ export function LoginForm() {
   const onSubmit = async (data: LoginInput) => {
     // Clear all messages
     setServerError(null);
-    setNeedsVerification(false);
     setResendMessage(null);
     setSuccessMessage(null);
 
@@ -74,30 +44,8 @@ export function LoginForm() {
     if (result.success) {
       router.push("/");
       router.refresh();
-    } else if (result.error?.toLowerCase().includes("verify")) {
-      setNeedsVerification(true);
-      setVerificationEmail(data.email);
-      setServerError(result.error);
     } else if (result.error) {
       setServerError(result.error);
-    }
-  };
-
-  const handleResendVerification = async () => {
-    setIsResending(true);
-    setResendMessage(null);
-
-    try {
-      await authApi.resendVerification(verificationEmail);
-      setResendMessage("Verification email sent! Please check your inbox.");
-      // Auto-dismiss resend message after 5 seconds
-      setTimeout(() => {
-        setResendMessage(null);
-      }, 5000);
-    } catch (error: any) {
-      setResendMessage(error?.message || "Failed to send verification email");
-    } finally {
-      setIsResending(false);
     }
   };
 
@@ -184,20 +132,6 @@ export function LoginForm() {
       <Button type="submit" isLoading={isLoading || isSubmitting} fullWidth>
         Sign In
       </Button>
-
-      {/* Resend Verification Link */}
-      {needsVerification && (
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={handleResendVerification}
-            disabled={isResending}
-            className="text-sm text-blue-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isResending ? "Sending..." : "Resend verification email"}
-          </button>
-        </div>
-      )}
 
       {/* Sign Up Link */}
       <p className="text-center text-sm text-gray-600">

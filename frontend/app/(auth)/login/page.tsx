@@ -11,9 +11,7 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <AuthLayout title="Welcome Back" subtitle="Sign in to your account">
-      <Suspense fallback={<div className="text-center">Loading...</div>}>
         <LoginForm />
-      </Suspense>
     </AuthLayout>
   );
 }

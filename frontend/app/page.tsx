@@ -44,28 +44,8 @@ export default function Home() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8">
-        {isAuthenticated ? (
-          <>
-            <CreatePostForm />
-            <PostList />
-          </>
-        ) : (
-          <Card className="p-8 text-center">
-            <h2 className="text-lg font-semibold">Welcome to Real-time Blog</h2>
-            <p className="mt-2 text-gray-600">
-              Sign in to create posts and see real-time updates from other
-              users.
-            </p>
-            <div className="mt-4 flex justify-center gap-4">
-              <Link href="/login">
-                <Button>Sign In</Button>
-              </Link>
-              <Link href="/register">
-                <Button variant="outline">Sign Up</Button>
-              </Link>
-            </div>
-          </Card>
-        )}
+        <CreatePostForm />
+        <PostList />
       </main>
     </div>
   );

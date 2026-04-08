@@ -263,22 +263,4 @@ exports.getMe = async (req, res) => {
   }
 };
 
-// Verify email
-exports.verifyEmail = async (req, res) => {
-  try {
-    const { token } = req.params;
 
-    const user = await User.verifyEmail(token);
-
-    if (!user) {
-      return res
-        .status(400)
-        .json({ error: "Invalid or expired verification link" });
-    }
-
-    res.json({ message: "Email verified successfully", user });
-  } catch (error) {
-    console.error("Verification error:", error);
-    res.status(500).json({ error: "Email verification failed" });
-  }
-};

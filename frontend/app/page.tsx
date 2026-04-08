@@ -5,7 +5,6 @@ import { CreatePostForm } from "@/components/post/CreatePostForm";
 import { PostList } from "@/components/post/PostList";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
-import { Card } from "@/components/ui/Card";
 
 export default function Home() {
   const { user, isAuthenticated, logout } = useAuth();

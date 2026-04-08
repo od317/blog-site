@@ -191,21 +191,6 @@ class User {
   `;
     await pool.query(query, [isVerified, userId]);
   }
-
-  // Verify email
-  static async verifyEmail(token) {
-    const query = `
-      UPDATE users 
-      SET is_verified = TRUE, 
-          verification_token = NULL,
-          verification_token_expires = NULL
-      WHERE verification_token = $1 
-        AND verification_token_expires > CURRENT_TIMESTAMP
-      RETURNING id, email, username
-    `;
-    const result = await pool.query(query, [token]);
-    return result.rows[0];
-  }
 }
 
 module.exports = User;

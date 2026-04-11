@@ -34,17 +34,59 @@ class Post {
     return result.rows[0];
   }
 
-  // Get all posts with author info and counts
+  static generateExcerpt(content, maxLength = 200) {
+    // Remove HTML tags if any
+    const plainText = content.replace(/<[^>]*>/g, "");
+    // Trim and add ellipsis
+    if (plainText.length <= maxLength) return plainText;
+    return plainText.substring(0, maxLength).trim() + "...";
+  }
+
   static async findAll(limit = 20, offset = 0, currentUserId = null) {
+    if (!currentUserId) {
+      const query = `
+      SELECT 
+        p.id,
+        p.title,
+        p.content,
+        LEFT(p.content, 200) as excerpt,
+        p.user_id,
+        p.created_at,
+        p.updated_at,
+        u.username,
+        u.full_name,
+        u.avatar_url,
+        COUNT(DISTINCT l.id) as like_count,
+        COUNT(DISTINCT c.id) as comment_count,
+        false as user_has_liked
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN likes l ON p.id = l.post_id
+      LEFT JOIN comments c ON p.id = c.post_id
+      GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
+      ORDER BY p.created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+      const values = [limit, offset];
+      const result = await pool.query(query, values);
+      return result.rows;
+    }
+
     const query = `
     SELECT 
-      p.*,
+      p.id,
+      p.title,
+      p.content,
+      LEFT(p.content, 200) as excerpt,
+      p.user_id,
+      p.created_at,
+      p.updated_at,
       u.username,
       u.full_name,
       u.avatar_url,
       COUNT(DISTINCT l.id) as like_count,
       COUNT(DISTINCT c.id) as comment_count,
-      $3::uuid IS NOT NULL AND EXISTS(
+      EXISTS(
         SELECT 1 FROM likes l2 
         WHERE l2.post_id = p.id AND l2.user_id = $3
       ) as user_has_liked
@@ -52,7 +94,7 @@ class Post {
     JOIN users u ON p.user_id = u.id
     LEFT JOIN likes l ON p.id = l.post_id
     LEFT JOIN comments c ON p.id = c.post_id
-    GROUP BY p.id, u.id
+    GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
     ORDER BY p.created_at DESC
     LIMIT $1 OFFSET $2
   `;
@@ -62,17 +104,48 @@ class Post {
   }
 
   // Get single post with details
-  // Get single post with details
   static async findById(id, currentUserId = null) {
+    if (!currentUserId) {
+      const query = `
+      SELECT 
+        p.id,
+        p.title,
+        p.content,
+        p.user_id,
+        p.created_at,
+        p.updated_at,
+        u.username,
+        u.full_name,
+        u.avatar_url,
+        COUNT(DISTINCT l.id) as like_count,
+        COUNT(DISTINCT c.id) as comment_count,
+        false as user_has_liked
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN likes l ON p.id = l.post_id
+      LEFT JOIN comments c ON p.id = c.post_id
+      WHERE p.id = $1
+      GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
+    `;
+      const values = [id];
+      const result = await pool.query(query, values);
+      return result.rows[0];
+    }
+
     const query = `
     SELECT 
-      p.*,
+      p.id,
+      p.title,
+      p.content,
+      p.user_id,
+      p.created_at,
+      p.updated_at,
       u.username,
       u.full_name,
       u.avatar_url,
       COUNT(DISTINCT l.id) as like_count,
       COUNT(DISTINCT c.id) as comment_count,
-      $2::uuid IS NOT NULL AND EXISTS(
+      EXISTS(
         SELECT 1 FROM likes l2 
         WHERE l2.post_id = p.id AND l2.user_id = $2
       ) as user_has_liked
@@ -81,11 +154,68 @@ class Post {
     LEFT JOIN likes l ON p.id = l.post_id
     LEFT JOIN comments c ON p.id = c.post_id
     WHERE p.id = $1
-    GROUP BY p.id, u.id
+    GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
   `;
     const values = [id, currentUserId];
     const result = await pool.query(query, values);
     return result.rows[0];
+  }
+
+  // Get posts by user
+  static async findByUser(
+    userId,
+    limit = 20,
+    offset = 0,
+    currentUserId = null,
+  ) {
+    if (!currentUserId) {
+      const query = `
+      SELECT 
+        p.*,
+        u.username,
+        u.full_name,
+        u.avatar_url,
+        COUNT(DISTINCT l.id) as like_count,
+        COUNT(DISTINCT c.id) as comment_count,
+        false as user_has_liked
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN likes l ON p.id = l.post_id
+      LEFT JOIN comments c ON p.id = c.post_id
+      WHERE p.user_id = $1
+      GROUP BY p.id, u.id
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+      const values = [userId, limit, offset];
+      const result = await pool.query(query, values);
+      return result.rows;
+    }
+
+    const query = `
+    SELECT 
+      p.*,
+      u.username,
+      u.full_name,
+      u.avatar_url,
+      COUNT(DISTINCT l.id) as like_count,
+      COUNT(DISTINCT c.id) as comment_count,
+      EXISTS(
+        SELECT 1 FROM likes l2 
+        WHERE l2.post_id = p.id AND l2.user_id = $3
+      ) as user_has_liked
+    FROM posts p
+    JOIN users u ON p.user_id = u.id
+    LEFT JOIN likes l ON p.id = l.post_id
+    LEFT JOIN comments c ON p.id = c.post_id
+    WHERE p.user_id = $1
+    GROUP BY p.id, u.id
+    ORDER BY p.created_at DESC
+    LIMIT $2 OFFSET $4
+  `;
+    const values = [userId, limit, currentUserId, offset];
+    const result = await pool.query(query, values);
+    return result.rows;
   }
 
   // Update post
@@ -108,30 +238,6 @@ class Post {
     const values = [id, userId];
     const result = await pool.query(query, values);
     return result.rows[0];
-  }
-
-  // Get posts by user
-  static async findByUser(userId, limit = 20, offset = 0) {
-    const query = `
-      SELECT 
-        p.*,
-        u.username,
-        u.full_name,
-        u.avatar_url,
-        COUNT(DISTINCT l.id) as like_count,
-        COUNT(DISTINCT c.id) as comment_count
-      FROM posts p
-      JOIN users u ON p.user_id = u.id
-      LEFT JOIN likes l ON p.id = l.post_id
-      LEFT JOIN comments c ON p.id = c.post_id
-      WHERE p.user_id = $1
-      GROUP BY p.id, u.id
-      ORDER BY p.created_at DESC
-      LIMIT $2 OFFSET $3
-    `;
-    const values = [userId, limit, offset];
-    const result = await pool.query(query, values);
-    return result.rows;
   }
 }
 

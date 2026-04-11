@@ -1,31 +1,15 @@
 import { create } from "zustand";
 import { api } from "@/lib/api/client";
-import { config } from "@/lib/config";
 import { useAuthStore } from "./authStore";
-
-export interface Post {
-  id: string;
-  title: string;
-  content: string;
-  user_id: string;
-  username: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  like_count: number;
-  comment_count: number;
-  user_has_liked: boolean;
-  created_at: string;
-  updated_at: string;
-  isPending?: boolean;
-  error?: string;
-}
+import { getErrorMessage } from "@/types/error";
+import { Post } from "@/types/Post";
 
 interface PostStore {
   posts: Post[];
   isLoading: boolean;
   error: string | null;
   fetchPosts: () => Promise<void>;
-  createPost: (data: { title: string; content: string }) => Promise<Post>; // Change to Promise<Post>
+  createPost: (data: { title: string; content: string }) => Promise<Post>;
   retryPost: (
     postId: string,
     data: { title: string; content: string },
@@ -52,21 +36,19 @@ export const usePostStore = create<PostStore>((set, get) => ({
     try {
       const posts = await api.get<Post[]>("/posts");
       set({ posts, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      set({ error: message, isLoading: false });
     }
   },
 
   createPost: async (data) => {
     const { title, content } = data;
 
-    // Get current user from auth store instead of localStorage
     const currentUser = useAuthStore.getState().user;
 
-    // Generate temporary ID for optimistic post
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-    // Create optimistic post
     const optimisticPost: Post = {
       id: tempId,
       title,
@@ -83,20 +65,17 @@ export const usePostStore = create<PostStore>((set, get) => ({
       isPending: true,
     };
 
-    // Add optimistic post to the list immediately
     set((state) => ({
       posts: [optimisticPost, ...state.posts],
       isLoading: false,
     }));
 
     try {
-      // Use the api client instead of fetch - cookies are sent automatically
       const realPost = await api.post<Post>("/posts", {
         title,
         content,
       });
 
-      // Replace optimistic post with real post
       set((state) => ({
         posts: state.posts.map((post) =>
           post.id === tempId ? { ...realPost, isPending: false } : post,
@@ -104,21 +83,22 @@ export const usePostStore = create<PostStore>((set, get) => ({
       }));
 
       return realPost;
-    } catch (error: any) {
-      // Mark the optimistic post as failed
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+
       set((state) => ({
         posts: state.posts.map((post) =>
           post.id === tempId
             ? {
                 ...post,
                 isPending: false,
-                error: error.message || "Failed to create post",
+                error: message,
               }
             : post,
         ),
       }));
 
-      throw error;
+      throw new Error(message);
     }
   },
 
@@ -126,7 +106,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
     postId: string,
     data: { title: string; content: string },
   ) => {
-    // Mark post as pending again
     set((state) => ({
       posts: state.posts.map((post) =>
         post.id === postId
@@ -136,32 +115,32 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }));
 
     try {
-      // Use the api client - cookies are sent automatically
       const realPost = await api.post<Post>("/posts", {
         title: data.title,
         content: data.content,
       });
 
-      // Replace failed post with real post
       set((state) => ({
         posts: state.posts.map((post) =>
           post.id === postId ? { ...realPost, isPending: false } : post,
         ),
       }));
-    } catch (error: any) {
-      // Keep the error state
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+
       set((state) => ({
         posts: state.posts.map((post) =>
           post.id === postId
             ? {
                 ...post,
                 isPending: false,
-                error: error.message || "Failed to create post",
+                error: message,
               }
             : post,
         ),
       }));
-      throw error;
+
+      throw new Error(message);
     }
   },
 
@@ -172,7 +151,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
   },
 
   addNewPost: (post) => {
-    // Check if post already exists (avoid duplicates)
     set((state) => {
       const exists = state.posts.some((p) => p.id === post.id);
       if (exists) return state;

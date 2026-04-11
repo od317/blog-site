@@ -6,6 +6,11 @@ exports.addComment = async (req, res) => {
   try {
     const { postId } = req.params;
     const { content } = req.body;
+    const userId = req.userId;
+
+    console.log("💬 Adding comment to post:", postId);
+    console.log("💬 User ID:", userId);
+    console.log("💬 Content:", content);
 
     if (!content || content.trim().length === 0) {
       return res.status(400).json({ error: "Comment content is required" });
@@ -17,23 +22,42 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ error: "Post not found" });
     }
 
+    // Create comment
     const comment = await Comment.create({
       content: content.trim(),
       post_id: postId,
-      user_id: req.userId,
+      user_id: userId,
     });
 
-    // Get comment with user info
-    const [fullComment] = await Comment.findByPost(postId, 1, 0);
+    // Get full comment with user info
+    const fullComment = await Comment.findById(comment.id);
 
-    // Emit to all clients in the post room
+    // Get updated comment count
+    const commentCount = await Comment.getCount(postId);
+
+    console.log("💬 Comment added:", fullComment.id);
+
+    // Get io instance and emit real-time event
     const io = req.app.get("io");
+
+    // Emit to post room (users viewing this specific post)
     io.to(`post-${postId}`).emit("new-comment", {
-      ...fullComment,
-      post_id: postId,
+      comment: fullComment,
+      postId,
+      commentCount,
     });
 
-    res.status(201).json(fullComment);
+    // Also emit to feed for real-time feed updates
+    io.emit("feed-comment-updated", {
+      postId,
+      commentCount,
+    });
+
+    res.status(201).json({
+      success: true,
+      comment: fullComment,
+      commentCount,
+    });
   } catch (error) {
     console.error("Add comment error:", error);
     res.status(500).json({ error: "Failed to add comment" });
@@ -44,18 +68,46 @@ exports.addComment = async (req, res) => {
 exports.deleteComment = async (req, res) => {
   try {
     const { id } = req.params;
-    const comment = await Comment.delete(id, req.userId);
+    const userId = req.userId;
 
+    // Get comment to find post_id
+    const comment = await Comment.findById(id);
     if (!comment) {
+      return res.status(404).json({ error: "Comment not found" });
+    }
+
+    const postId = comment.post_id;
+
+    // Delete comment
+    const deleted = await Comment.delete(id, userId);
+
+    if (!deleted) {
       return res
         .status(404)
         .json({ error: "Comment not found or unauthorized" });
     }
 
-    const io = req.app.get("io");
-    io.emit("comment-deleted", { id });
+    // Get updated comment count
+    const commentCount = await Comment.getCount(postId);
 
-    res.status(204).send();
+    // Emit real-time update
+    const io = req.app.get("io");
+    io.to(`post-${postId}`).emit("comment-deleted", {
+      commentId: id,
+      postId,
+      commentCount,
+    });
+
+    io.emit("feed-comment-updated", {
+      postId,
+      commentCount,
+    });
+
+    res.json({
+      success: true,
+      message: "Comment deleted",
+      commentCount,
+    });
   } catch (error) {
     console.error("Delete comment error:", error);
     res.status(500).json({ error: "Failed to delete comment" });
@@ -73,7 +125,17 @@ exports.getPostComments = async (req, res) => {
       parseInt(limit),
       parseInt(offset),
     );
-    res.json(comments);
+    const total = await Comment.getCount(postId);
+
+    res.json({
+      comments,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > parseInt(offset) + comments.length,
+      },
+    });
   } catch (error) {
     console.error("Get comments error:", error);
     res.status(500).json({ error: "Failed to fetch comments" });

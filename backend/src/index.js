@@ -98,11 +98,14 @@ const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
 const postRoutes = require("./routes/posts.routes");
 const adminRoutes = require("./routes/admin.routes");
+const likeRoutes = require("./routes/likes.routes");
+const profileRoutes = require("./routes/profile.routes");
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/admin", adminRoutes);
-
+app.use("/api/likes", likeRoutes);
+app.use("/api/profile", profileRoutes);
 // ========== HEALTH CHECK ==========
 app.get("/api/health", (req, res) => {
   res.json({
@@ -127,16 +130,11 @@ app.use((err, req, res, next) => {
 });
 
 // ========== SOCKET.IO CONNECTION HANDLING ==========
+// Socket connection handling
 io.on("connection", (socket) => {
   console.log("🔌 New client connected:", socket.id);
-  console.log("Socket transport:", socket.conn.transport.name);
+  console.log("🔌 Total connected clients:", io.engine.clientsCount);
 
-  // Handle ping for keep-alive
-  socket.on("ping", () => {
-    socket.emit("pong");
-  });
-
-  // Authenticate socket connection
   socket.on("authenticate", (token) => {
     try {
       const jwt = require("jsonwebtoken");
@@ -144,39 +142,23 @@ io.on("connection", (socket) => {
       socket.userId = decoded.id;
       socket.join(`user:${decoded.id}`);
       console.log(`✅ User ${decoded.id} authenticated on socket`);
+      console.log(`✅ User ${decoded.id} joined room user:${decoded.id}`);
       socket.emit("authenticated", { userId: decoded.id });
     } catch (error) {
       console.log("❌ Socket authentication failed:", error.message);
-      socket.emit("auth-error", { message: "Authentication failed" });
     }
   });
 
-  // Subscribe to feed updates
   socket.on("subscribe-feed", () => {
     if (socket.userId) {
       socket.join("feed");
-      console.log(`User ${socket.userId} subscribed to feed`);
+      console.log(`✅ User ${socket.userId} subscribed to feed room`);
+      console.log(
+        `✅ Feed room size:`,
+        io.sockets.adapter.rooms.get("feed")?.size || 0,
+      );
       socket.emit("subscribed", { channel: "feed" });
     }
-  });
-
-  // Unsubscribe from feed
-  socket.on("unsubscribe-feed", () => {
-    if (socket.userId) {
-      socket.leave("feed");
-      console.log(`User ${socket.userId} unsubscribed from feed`);
-    }
-  });
-
-  // Join post room for real-time updates
-  socket.on("join-post", (postId) => {
-    socket.join(`post-${postId}`);
-    console.log(`Socket ${socket.id} joined post-${postId}`);
-  });
-
-  socket.on("leave-post", (postId) => {
-    socket.leave(`post-${postId}`);
-    console.log(`Socket ${socket.id} left post-${postId}`);
   });
 
   socket.on("disconnect", () => {

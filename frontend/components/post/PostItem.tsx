@@ -1,10 +1,10 @@
 "use client";
 
-import { Post } from "@/lib/store/postStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useNotification } from "@/lib/hooks/useNotification";
 import { usePostStore } from "@/lib/store/postStore";
+import { Post } from "@/types/Post";
 
 interface PostItemProps {
   post: Post;

@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { AuthState, User } from "@/types/auth";
+import { AuthState } from "@/types/auth";
 import { authApi } from "@/lib/api/auth";
 import { formatError } from "@/lib/utils/errors";
+import { getErrorMessage, isApiError } from "@/types/error";
 
 interface AuthStore extends AuthState {
   login: (
@@ -43,7 +44,7 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           return { success: true };
-        } catch (error) {
+        } catch (error: unknown) {
           const formatted = formatError(error);
           set({
             error: formatted.message,
@@ -68,7 +69,7 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           return { success: true };
-        } catch (error) {
+        } catch (error: unknown) {
           const formatted = formatError(error);
           set({
             error: formatted.message,
@@ -83,8 +84,8 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
         try {
           await authApi.logout();
-        } catch (error) {
-          console.error("Logout error:", error);
+        } catch (error: unknown) {
+          console.error("Logout error:", getErrorMessage(error));
         }
         set({
           user: null,
@@ -96,7 +97,6 @@ export const useAuthStore = create<AuthStore>()(
 
       validateAndRefresh: async (): Promise<boolean> => {
         try {
-          // First, try to validate the current token
           console.log("🔍 Validating token...");
           const validation = await authApi.validateToken();
 
@@ -105,11 +105,9 @@ export const useAuthStore = create<AuthStore>()(
             return true;
           }
 
-          // Token is invalid, try to refresh
           console.log("🔄 Token invalid, attempting refresh...");
           await authApi.refreshToken();
 
-          // After refresh, validate again
           const newValidation = await authApi.validateToken();
           if (newValidation.valid) {
             console.log("✅ Token refreshed and valid");
@@ -117,14 +115,18 @@ export const useAuthStore = create<AuthStore>()(
           }
 
           return false;
-        } catch (error: any) {
+        } catch (error: unknown) {
           // Check if it's a 401 error (expected for expired tokens)
-          if (error?.status === 401 || error?.message?.includes("401")) {
+          const isUnauthorized =
+            (isApiError(error) && error.status === 401) ||
+            getErrorMessage(error).includes("401");
+
+          if (isUnauthorized) {
             console.log("⚠️ Token validation returned 401 - not authenticated");
             return false;
           }
-          // Log other errors but don't throw
-          console.error("Validate and refresh error:", error?.message || error);
+
+          console.error("Validate and refresh error:", getErrorMessage(error));
           return false;
         }
       },
@@ -133,7 +135,6 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
 
         try {
-          // Validate token first
           const isValid = await get().validateAndRefresh();
 
           if (!isValid) {
@@ -145,12 +146,11 @@ export const useAuthStore = create<AuthStore>()(
             return false;
           }
 
-          // Token is valid, get user data
           const user = await authApi.getMe();
           set({ user, isAuthenticated: true, isLoading: false });
           return true;
-        } catch (error) {
-          console.error("Auth check failed:", error);
+        } catch (error: unknown) {
+          console.error("Auth check failed:", getErrorMessage(error));
           set({
             user: null,
             isAuthenticated: false,

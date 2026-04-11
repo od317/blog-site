@@ -191,6 +191,72 @@ class User {
   `;
     await pool.query(query, [isVerified, userId]);
   }
+
+  static async getProfile(userId) {
+    const query = `
+    SELECT 
+      u.id,
+      u.username,
+      u.email,
+      u.full_name,
+      u.avatar_url,
+      u.bio,
+      u.is_verified,
+      u.followers_count,
+      u.following_count,
+      u.created_at,
+      COUNT(DISTINCT p.id) as posts_count,
+      COUNT(DISTINCT l.id) as total_likes_received
+    FROM users u
+    LEFT JOIN posts p ON p.user_id = u.id
+    LEFT JOIN likes l ON l.post_id = p.id
+    WHERE u.id = $1
+    GROUP BY u.id
+  `;
+    const result = await pool.query(query, [userId]);
+    return result.rows[0];
+  }
+
+  // Get user posts with pagination
+  static async getUserPosts(
+    userId,
+    limit = 10,
+    offset = 0,
+    currentUserId = null,
+  ) {
+    const query = `
+    SELECT 
+      p.id,
+      p.title,
+      p.content,
+      LEFT(p.content, 200) as excerpt,
+      p.created_at,
+      p.updated_at,
+      COUNT(DISTINCT l.id) as like_count,
+      COUNT(DISTINCT c.id) as comment_count,
+      EXISTS(
+        SELECT 1 FROM likes l2 
+        WHERE l2.post_id = p.id AND l2.user_id = $3
+      ) as user_has_liked
+    FROM posts p
+    LEFT JOIN likes l ON p.id = l.post_id
+    LEFT JOIN comments c ON p.id = c.post_id
+    WHERE p.user_id = $1
+    GROUP BY p.id
+    ORDER BY p.created_at DESC
+    LIMIT $2 OFFSET $4
+  `;
+    const values = [userId, limit, currentUserId, offset];
+    const result = await pool.query(query, values);
+    return result.rows;
+  }
+
+  // Get user posts count
+  static async getUserPostsCount(userId) {
+    const query = `SELECT COUNT(*) as count FROM posts WHERE user_id = $1`;
+    const result = await pool.query(query, [userId]);
+    return parseInt(result.rows[0].count);
+  }
 }
 
 module.exports = User;

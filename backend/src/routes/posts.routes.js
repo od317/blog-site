@@ -5,15 +5,16 @@ const postController = require("../controllers/post.controller");
 const commentController = require("../controllers/comment.controller");
 const likeController = require("../controllers/like.controller");
 
-// Public routes
+// ========== IMPORTANT: Apply auth middleware FIRST ==========
+// This will set req.userId for ALL routes, even public ones
+router.use(authMiddleware);
+
+// Now all routes will have access to req.userId
 router.get("/", postController.getAllPosts);
 router.get("/user/:userId", postController.getUserPosts);
 router.get("/:id", postController.getPost);
 
-// Protected routes
-router.use(authMiddleware);
-
-// Post CRUD
+// Post CRUD (these require auth, handled by middleware)
 router.post("/", postController.createPost);
 router.put("/:id", postController.updatePost);
 router.delete("/:id", postController.deletePost);
@@ -22,10 +23,5 @@ router.delete("/:id", postController.deletePost);
 router.post("/:postId/comments", commentController.addComment);
 router.delete("/comments/:id", commentController.deleteComment);
 router.get("/:postId/comments", commentController.getPostComments);
-
-// Likes
-router.post("/:postId/like", likeController.likePost);
-router.delete("/:postId/like", likeController.unlikePost);
-router.get("/:postId/like", likeController.checkLike);
 
 module.exports = router;

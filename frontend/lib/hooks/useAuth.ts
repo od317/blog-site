@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/lib/store/authStore";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 export function useAuth() {
   const router = useRouter();
@@ -36,6 +36,28 @@ export function useAuth() {
     }, [isLoading, isAuthenticated, router, redirectTo]);
   };
 
+  // Add action guard for protected actions
+  const withAuth = useCallback(
+    <T extends (...args: any[]) => any>(
+      action: T,
+      redirectTo: string = "/login",
+    ): ((...args: Parameters<T>) => void) => {
+      return (...args: Parameters<T>) => {
+        if (isLoading) return;
+
+        if (!isAuthenticated) {
+          router.push(
+            `${redirectTo}?returnUrl=${encodeURIComponent(window.location.pathname)}`,
+          );
+          return;
+        }
+
+        return action(...args);
+      };
+    },
+    [isAuthenticated, isLoading, router],
+  );
+
   return {
     user,
     isAuthenticated,
@@ -48,5 +70,6 @@ export function useAuth() {
     clearError,
     RequireAuth,
     RequireGuest,
+    withAuth, // Add this
   };
 }

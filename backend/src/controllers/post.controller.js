@@ -1,40 +1,53 @@
 const Post = require("../models/Post");
+const User = require("../models/User");
 const Comment = require("../models/Comment");
 const Like = require("../models/Like");
+const { calculateReadingTime } = require("../utils/readingTime");
 
-// Get all posts
-// Get all posts
+// Get all posts (for homepage feed)
 exports.getAllPosts = async (req, res) => {
   try {
     const { limit = 20, offset = 0 } = req.query;
-    // Pass req.userId (current user) to check if they liked each post
+
     const posts = await Post.findAll(
       parseInt(limit),
       parseInt(offset),
       req.userId || null,
     );
-    res.json(posts);
+
+    // Add reading time to each post
+    const postsWithReadingTime = posts.map((post) => ({
+      ...post,
+      readingTime: calculateReadingTime(post.content || ""),
+    }));
+
+    res.json(postsWithReadingTime);
   } catch (error) {
     console.error("Get posts error:", error);
     res.status(500).json({ error: "Failed to fetch posts" });
   }
 };
 
-// Get single post
+// Get single post (for full post page)
 exports.getPost = async (req, res) => {
   try {
     const { id } = req.params;
-    const post = await Post.findById(id, req.userId);
+    const post = await Post.findById(id, req.userId || null);
 
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
 
-    // Get comments
     const comments = await Comment.findByPost(id);
 
-    res.json({
+    // Add reading time
+    const postWithReadingTime = {
       ...post,
+      readingTime: calculateReadingTime(post.content || ""),
+    };
+
+    res.json({
+      ...postWithReadingTime,
       comments,
     });
   } catch (error) {
@@ -44,11 +57,10 @@ exports.getPost = async (req, res) => {
 };
 
 // Create post
-// Create post
 exports.createPost = async (req, res) => {
   try {
-    console.log("Create post request body:", req.body); // Debug log
-    console.log("User ID:", req.userId); // Debug log
+    console.log("Create post request body:", req.body);
+    console.log("User ID:", req.userId);
 
     const { title, content } = req.body;
 
@@ -65,23 +77,28 @@ exports.createPost = async (req, res) => {
     // Get the complete post with user info
     const fullPost = await Post.findById(post.id, req.userId);
 
+    // Add reading time
+    const postWithReadingTime = {
+      ...fullPost,
+      readingTime: calculateReadingTime(fullPost.content || ""),
+    };
+
     // Get the io instance
     const io = req.app.get("io");
 
     // Emit to ALL connected clients (for feed)
-    io.emit("new-post", fullPost);
-
-    // Also emit to specific user room (for notifications)
-    io.emit("feed:new-post", fullPost);
+    io.emit("new-post", postWithReadingTime);
+    io.emit("feed:new-post", postWithReadingTime);
 
     console.log(`📢 New post created by ${req.userId}, emitted to all clients`);
 
-    res.status(201).json(fullPost);
+    res.status(201).json(postWithReadingTime);
   } catch (error) {
     console.error("Create post error:", error);
     res.status(500).json({ error: "Failed to create post" });
   }
 };
+
 // Update post
 exports.updatePost = async (req, res) => {
   try {
@@ -95,12 +112,17 @@ exports.updatePost = async (req, res) => {
     }
 
     const fullPost = await Post.findById(id, req.userId);
+    const postWithReadingTime = {
+      ...fullPost,
+      readingTime: calculateReadingTime(fullPost.content || ""),
+    };
 
     // Emit update to all clients
     const io = req.app.get("io");
-    io.emit("post-updated", fullPost);
+    io.emit("post-updated", postWithReadingTime);
+    io.to(`post-${id}`).emit("post-updated", postWithReadingTime);
 
-    res.json(fullPost);
+    res.json(postWithReadingTime);
   } catch (error) {
     console.error("Update post error:", error);
     res.status(500).json({ error: "Failed to update post" });
@@ -120,6 +142,7 @@ exports.deletePost = async (req, res) => {
     // Emit deletion to all clients
     const io = req.app.get("io");
     io.emit("post-deleted", { id });
+    io.to(`post-${id}`).emit("post-deleted", { id });
 
     res.status(204).send();
   } catch (error) {
@@ -138,8 +161,16 @@ exports.getUserPosts = async (req, res) => {
       userId,
       parseInt(limit),
       parseInt(offset),
+      req.userId || null,
     );
-    res.json(posts);
+
+    // Add reading time to each post
+    const postsWithReadingTime = posts.map((post) => ({
+      ...post,
+      readingTime: calculateReadingTime(post.content || ""),
+    }));
+
+    res.json(postsWithReadingTime);
   } catch (error) {
     console.error("Get user posts error:", error);
     res.status(500).json({ error: "Failed to fetch user posts" });

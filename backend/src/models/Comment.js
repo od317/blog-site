@@ -33,7 +33,7 @@ class Comment {
     return result.rows[0];
   }
 
-  // Get comments for a post
+  // Get comments for a post with user info
   static async findByPost(postId, limit = 50, offset = 0) {
     const query = `
       SELECT 
@@ -66,6 +66,22 @@ class Comment {
     const query = "SELECT COUNT(*) as count FROM comments WHERE post_id = $1";
     const result = await pool.query(query, [postId]);
     return parseInt(result.rows[0].count);
+  }
+
+  // Get comment by ID
+  static async findById(id) {
+    const query = `
+      SELECT 
+        c.*,
+        u.username,
+        u.full_name,
+        u.avatar_url
+      FROM comments c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.id = $1
+    `;
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
   }
 }
 

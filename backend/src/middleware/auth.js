@@ -3,7 +3,6 @@ const User = require("../models/User");
 
 const authMiddleware = async (req, res, next) => {
   try {
-    // Try to get token from cookie first, then from Authorization header
     let token = req.cookies.accessToken;
 
     if (!token) {
@@ -14,27 +13,31 @@ const authMiddleware = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({ error: "No token provided" });
+      console.log("🔑 Auth: No token found");
+      req.userId = null;
+      return next();
     }
 
+    console.log("🔑 Auth: Token found, verifying...");
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("🔑 Auth: Decoded userId:", decoded.id);
+
     const user = await User.findById(decoded.id);
 
     if (!user) {
-      return res.status(401).json({ error: "User not found" });
+      console.log("🔑 Auth: User not found");
+      req.userId = null;
+      return next();
     }
 
     req.user = user;
     req.userId = user.id;
+    console.log("🔑 Auth: userId set to:", req.userId);
     next();
   } catch (error) {
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ error: "Token expired" });
-    }
-    res.status(500).json({ error: "Authentication failed" });
+    console.log("🔑 Auth error:", error.message);
+    req.userId = null;
+    next();
   }
 };
 

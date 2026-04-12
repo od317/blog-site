@@ -72,3 +72,21 @@ export const disconnectSocket = () => {
     socket = null;
   }
 };
+
+export const onReadersCountUpdated = (
+  callback: (data: { postId: string; count: number }) => void,
+) => {
+  const socket = getSocket();
+  if (!socket) return;
+  socket.on("readers-count-updated", callback);
+  return () => socket.off("readers-count-updated", callback);
+};
+
+export const onPostJoined = (
+  callback: (data: { postId: string; readerCount: number }) => void,
+) => {
+  const socket = getSocket();
+  if (!socket) return;
+  socket.on("post-joined", callback);
+  return () => socket.off("post-joined", callback);
+};

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { usePostStore } from "@/lib/store/postStore";
 import { LikeButton } from "@/components/post/LikeButton";
 import { Button } from "@/components/ui/Button";
+import { ActiveReaders } from "./ActiveReaders";
 import { deletePost } from "@/app/actions/post.actions";
 import { getSocket } from "@/lib/socket/client";
 import type { Post, Comment } from "@/types/Post";
@@ -64,12 +65,31 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
   };
 
   const handleCommentAdded = (newComment: Comment) => {
-    setComments((prev) => [newComment, ...prev]);
+    setComments((prev) => {
+      // Check if this is replacing a temp comment
+      const existingTempIndex = prev.findIndex(
+        (c) => c.id?.startsWith("temp-") && c.content === newComment.content,
+      );
+
+      if (existingTempIndex !== -1) {
+        const updated = [...prev];
+        updated[existingTempIndex] = newComment;
+        return updated;
+      }
+      return [newComment, ...prev];
+    });
+
     setPost((prev) => ({
       ...prev,
       comment_count: prev.comment_count + 1,
     }));
     updateCommentCount(post.id);
+  };
+
+  const handleCommentUpdated = (updatedComment: Comment) => {
+    setComments((prev) =>
+      prev.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
+    );
   };
 
   const handleCommentDeleted = (commentId: string) => {
@@ -105,6 +125,9 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
       </Link>
 
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        {/* Active Readers Counter */}
+        <ActiveReaders postId={post.id} />
+
         {/* Author info */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -162,11 +185,7 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
         comments={comments}
         onCommentAdded={handleCommentAdded}
         onCommentDeleted={handleCommentDeleted}
-        onCommentUpdated={(updatedComment) => {
-          setComments((prev) =>
-            prev.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
-          );
-        }}
+        onCommentUpdated={handleCommentUpdated}
       />
     </div>
   );

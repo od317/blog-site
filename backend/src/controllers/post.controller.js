@@ -176,3 +176,22 @@ exports.getUserPosts = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user posts" });
   }
 };
+
+exports.getActiveReaders = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // This would need access to the activeReaders Map
+    // For now, we'll rely on WebSocket events only
+    // The active readers count is managed in memory
+
+    res.json({
+      postId: id,
+      // Note: This is a simplified version
+      // In production, you might want to store this in Redis
+    });
+  } catch (error) {
+    console.error("Get active readers error:", error);
+    res.status(500).json({ error: "Failed to get active readers" });
+  }
+};

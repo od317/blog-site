@@ -24,4 +24,6 @@ router.post("/:postId/comments", commentController.addComment);
 router.delete("/comments/:id", commentController.deleteComment);
 router.get("/:postId/comments", commentController.getPostComments);
 
+router.get("/:id/active-readers", postController.getActiveReaders);
+
 module.exports = router;

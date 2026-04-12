@@ -129,16 +129,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ========== SOCKET.IO CONNECTION HANDLING ==========
-// Socket connection handling
+const activeReaders = new Map(); // postId -> Set of socket ids
+
 io.on("connection", (socket) => {
   console.log("🔌 New client connected:", socket.id);
   console.log("🔌 Total connected clients:", io.engine.clientsCount);
 
-  // Track current post room for cleanup
-  let currentPostRoom = null;
+  // Track which post this socket is currently viewing
+  let currentPostId = null;
 
-  // Authenticate socket
+  // Authenticate socket connection
   socket.on("authenticate", (token) => {
     try {
       const jwt = require("jsonwebtoken");
@@ -156,70 +156,112 @@ io.on("connection", (socket) => {
   // Subscribe to global feed
   socket.on("subscribe-feed", () => {
     if (socket.userId) {
-      socket.join("feed");
-      console.log(`✅ User ${socket.userId} subscribed to feed room`);
-      console.log(
-        `✅ Feed room size:`,
-        io.sockets.adapter.rooms.get("feed")?.size || 0,
-      );
-      socket.emit("subscribed", { channel: "feed" });
+      socket.join("global-feed");
+      console.log(`✅ User ${socket.userId} subscribed to global feed`);
+      socket.emit("subscribed", { channel: "global-feed" });
     }
   });
 
-  // Unsubscribe from feed
+  // Unsubscribe from global feed
   socket.on("unsubscribe-feed", () => {
     if (socket.userId) {
-      socket.leave("feed");
-      console.log(`User ${socket.userId} unsubscribed from feed`);
+      socket.leave("global-feed");
+      console.log(`User ${socket.userId} unsubscribed from global feed`);
     }
   });
 
-  // ========== POST ROOM HANDLERS ==========
-  // Join a specific post room
+  // ========== ACTIVE READERS TRACKING ==========
+  // Join a specific post room (for single post page)
   socket.on("join-post", (postId) => {
     // Leave previous post room if any
-    if (currentPostRoom) {
-      socket.leave(currentPostRoom);
-      console.log(`Socket left previous room: ${currentPostRoom}`);
+    if (currentPostId) {
+      const previousReaders = activeReaders.get(currentPostId);
+      if (previousReaders) {
+        previousReaders.delete(socket.id);
+        if (previousReaders.size === 0) {
+          activeReaders.delete(currentPostId);
+        }
+      }
+      socket.leave(`post-${currentPostId}`);
+
+      // Notify others in the previous post that reader count decreased
+      const newCount = previousReaders?.size || 0;
+      io.to(`post-${currentPostId}`).emit("readers-count-updated", {
+        postId: currentPostId,
+        count: newCount,
+      });
     }
-    currentPostRoom = `post-${postId}`;
-    socket.join(currentPostRoom);
-    console.log(`✅ Socket ${socket.id} joined post room: ${currentPostRoom}`);
-    socket.emit("post-joined", { postId });
+
+    // Join new post room
+    currentPostId = postId;
+    socket.join(`post-${postId}`);
+
+    // Add to active readers tracking
+    if (!activeReaders.has(postId)) {
+      activeReaders.set(postId, new Set());
+    }
+    activeReaders.get(postId).add(socket.id);
+
+    const readerCount = activeReaders.get(postId).size;
+    console.log(
+      `📖 User joined post ${postId}, active readers: ${readerCount}`,
+    );
+
+    // Notify all users in the post about the new reader count
+    io.to(`post-${postId}`).emit("readers-count-updated", {
+      postId,
+      count: readerCount,
+    });
+
+    socket.emit("post-joined", { postId, readerCount });
   });
 
   // Leave a specific post room
   socket.on("leave-post", (postId) => {
-    const room = `post-${postId}`;
-    socket.leave(room);
-    if (currentPostRoom === room) {
-      currentPostRoom = null;
+    if (currentPostId === postId) {
+      const readers = activeReaders.get(postId);
+      if (readers) {
+        readers.delete(socket.id);
+        const readerCount = readers.size;
+
+        if (readerCount === 0) {
+          activeReaders.delete(postId);
+        }
+
+        console.log(
+          `📖 User left post ${postId}, active readers: ${readerCount}`,
+        );
+
+        // Notify remaining users about the updated count
+        io.to(`post-${postId}`).emit("readers-count-updated", {
+          postId,
+          count: readerCount,
+        });
+      }
+
+      socket.leave(`post-${postId}`);
+      currentPostId = null;
     }
-    console.log(`Socket left post room: ${room}`);
-  });
-
-  // Handle delete comment
-  socket.on("delete-comment", (data) => {
-    console.log(`🗑️ Comment ${data.commentId} deleted on post ${data.postId}`);
-    socket.to(`post-${data.postId}`).emit("comment-deleted", {
-      commentId: data.commentId,
-      postId: data.postId,
-    });
-  });
-
-  // Handle update comment
-  socket.on("update-comment", (data) => {
-    console.log(`✏️ Comment ${data.commentId} updated on post ${data.postId}`);
-    socket.to(`post-${data.postId}`).emit("comment-updated", {
-      comment: data.comment,
-      postId: data.postId,
-    });
   });
 
   // Handle disconnection
   socket.on("disconnect", () => {
-    if (currentPostRoom) {
-      console.log(`Socket left room on disconnect: ${currentPostRoom}`);
+    if (currentPostId) {
+      const readers = activeReaders.get(currentPostId);
+      if (readers) {
+        readers.delete(socket.id);
+        const readerCount = readers.size;
+
+        if (readerCount === 0) {
+          activeReaders.delete(currentPostId);
+        }
+
+        // Notify remaining users
+        io.to(`post-${currentPostId}`).emit("readers-count-updated", {
+          postId: currentPostId,
+          count: readerCount,
+        });
+      }
     }
     console.log("🔌 Client disconnected:", socket.id);
   });

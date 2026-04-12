@@ -43,7 +43,8 @@ export async function addComment({
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${postId}/comments`;
 
     const response = await fetch(url, {
@@ -91,7 +92,8 @@ export async function deleteComment(
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/comments/${commentId}`;
 
     const response = await fetch(url, {
@@ -138,7 +140,8 @@ export async function updateComment({
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/comments/${commentId}`;
 
     const response = await fetch(url, {

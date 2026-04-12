@@ -63,7 +63,8 @@ export async function createPost(
     const cookieString = cookieStore.toString();
 
     // Get API URL from environment
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts`;
 
     // Make request to backend
@@ -128,7 +129,8 @@ export async function updatePost(
     const cookieString = cookieStore.toString();
 
     // Get API URL from environment
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl = 
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${data.id}`;
 
     // Make request to backend
@@ -187,7 +189,8 @@ export async function deletePost(
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
 
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl = 
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${postId}`;
 
     const response = await fetch(url, {

@@ -135,6 +135,10 @@ io.on("connection", (socket) => {
   console.log("🔌 New client connected:", socket.id);
   console.log("🔌 Total connected clients:", io.engine.clientsCount);
 
+  // Track current post room for cleanup
+  let currentPostRoom = null;
+
+  // Authenticate socket
   socket.on("authenticate", (token) => {
     try {
       const jwt = require("jsonwebtoken");
@@ -142,13 +146,14 @@ io.on("connection", (socket) => {
       socket.userId = decoded.id;
       socket.join(`user:${decoded.id}`);
       console.log(`✅ User ${decoded.id} authenticated on socket`);
-      console.log(`✅ User ${decoded.id} joined room user:${decoded.id}`);
       socket.emit("authenticated", { userId: decoded.id });
     } catch (error) {
       console.log("❌ Socket authentication failed:", error.message);
+      socket.emit("auth-error", { message: "Authentication failed" });
     }
   });
 
+  // Subscribe to global feed
   socket.on("subscribe-feed", () => {
     if (socket.userId) {
       socket.join("feed");
@@ -161,7 +166,61 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Unsubscribe from feed
+  socket.on("unsubscribe-feed", () => {
+    if (socket.userId) {
+      socket.leave("feed");
+      console.log(`User ${socket.userId} unsubscribed from feed`);
+    }
+  });
+
+  // ========== POST ROOM HANDLERS ==========
+  // Join a specific post room
+  socket.on("join-post", (postId) => {
+    // Leave previous post room if any
+    if (currentPostRoom) {
+      socket.leave(currentPostRoom);
+      console.log(`Socket left previous room: ${currentPostRoom}`);
+    }
+    currentPostRoom = `post-${postId}`;
+    socket.join(currentPostRoom);
+    console.log(`✅ Socket ${socket.id} joined post room: ${currentPostRoom}`);
+    socket.emit("post-joined", { postId });
+  });
+
+  // Leave a specific post room
+  socket.on("leave-post", (postId) => {
+    const room = `post-${postId}`;
+    socket.leave(room);
+    if (currentPostRoom === room) {
+      currentPostRoom = null;
+    }
+    console.log(`Socket left post room: ${room}`);
+  });
+
+  // Handle delete comment
+  socket.on("delete-comment", (data) => {
+    console.log(`🗑️ Comment ${data.commentId} deleted on post ${data.postId}`);
+    socket.to(`post-${data.postId}`).emit("comment-deleted", {
+      commentId: data.commentId,
+      postId: data.postId,
+    });
+  });
+
+  // Handle update comment
+  socket.on("update-comment", (data) => {
+    console.log(`✏️ Comment ${data.commentId} updated on post ${data.postId}`);
+    socket.to(`post-${data.postId}`).emit("comment-updated", {
+      comment: data.comment,
+      postId: data.postId,
+    });
+  });
+
+  // Handle disconnection
   socket.on("disconnect", () => {
+    if (currentPostRoom) {
+      console.log(`Socket left room on disconnect: ${currentPostRoom}`);
+    }
     console.log("🔌 Client disconnected:", socket.id);
   });
 });

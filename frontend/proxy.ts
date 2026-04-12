@@ -24,7 +24,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Get the API URL from environment
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+  const apiUrl = "http://backend:5000/api";
 
   // For public-only routes, we need to check if user is authenticated to redirect them
   // For protected routes, we need to check if user is authenticated to allow access

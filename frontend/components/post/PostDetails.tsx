@@ -7,10 +7,10 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { usePostStore } from "@/lib/store/postStore";
 import { LikeButton } from "@/components/post/LikeButton";
 import { Button } from "@/components/ui/Button";
-import { CommentSection } from "./CommentSection";
 import { deletePost } from "@/app/actions/post.actions";
 import { getSocket } from "@/lib/socket/client";
 import type { Post, Comment } from "@/types/Post";
+import { CommentSection } from "../comments/CommentSection";
 
 interface PostDetailsProps {
   post: Post;
@@ -162,6 +162,11 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
         comments={comments}
         onCommentAdded={handleCommentAdded}
         onCommentDeleted={handleCommentDeleted}
+        onCommentUpdated={(updatedComment) => {
+          setComments((prev) =>
+            prev.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
+          );
+        }}
       />
     </div>
   );

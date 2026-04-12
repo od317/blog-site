@@ -71,15 +71,11 @@ class Comment {
   // Get comment by ID
   static async findById(id) {
     const query = `
-      SELECT 
-        c.*,
-        u.username,
-        u.full_name,
-        u.avatar_url
-      FROM comments c
-      JOIN users u ON c.user_id = u.id
-      WHERE c.id = $1
-    `;
+    SELECT c.*, u.username, u.full_name, u.avatar_url
+    FROM comments c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.id = $1
+  `;
     const result = await pool.query(query, [id]);
     return result.rows[0];
   }

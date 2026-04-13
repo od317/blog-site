@@ -74,7 +74,7 @@ export async function createPost(
     console.log("🔧 Cookie string length:", cookieString.length);
     console.log("🔧 Has accessToken:", cookieString.includes("accessToken"));
 
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts`;
 
     const response = await fetch(url, {
@@ -139,7 +139,7 @@ export async function updatePost(data: {
       };
     }
 
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${data.id}`;
 
     const response = await fetch(url, {
@@ -195,7 +195,7 @@ export async function deletePost(
       };
     }
 
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${postId}`;
 
     const response = await fetch(url, {

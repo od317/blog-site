@@ -34,8 +34,7 @@ class Comment {
   }
 
   // Get comments for a post with user info
-  // Get comment by ID with user info
-  static async findById(id) {
+  static async findByPost(postId, limit = 50, offset = 0) {
     const query = `
     SELECT 
       c.*,
@@ -44,10 +43,13 @@ class Comment {
       u.avatar_url
     FROM comments c
     LEFT JOIN users u ON c.user_id = u.id
-    WHERE c.id = $1
+    WHERE c.post_id = $1
+    ORDER BY c.created_at DESC
+    LIMIT $2 OFFSET $3
   `;
-    const result = await pool.query(query, [id]);
-    return result.rows[0];
+    const values = [postId, limit, offset];
+    const result = await pool.query(query, values);
+    return result.rows;
   }
 
   // Delete comment
@@ -69,9 +71,13 @@ class Comment {
   // Get comment by ID
   static async findById(id) {
     const query = `
-    SELECT c.*, u.username, u.full_name, u.avatar_url
+    SELECT 
+      c.*,
+      u.username,
+      u.full_name,
+      u.avatar_url
     FROM comments c
-    JOIN users u ON c.user_id = u.id
+    LEFT JOIN users u ON c.user_id = u.id
     WHERE c.id = $1
   `;
     const result = await pool.query(query, [id]);

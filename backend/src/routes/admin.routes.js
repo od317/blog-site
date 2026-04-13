@@ -134,4 +134,25 @@ router.get("/post-comments/:postId", async (req, res) => {
   }
 });
 
+router.post("/fix-orphaned-comments", async (req, res) => {
+  try {
+    // Update comments with null user_id to use the post's author
+    const result = await pool.query(`
+      UPDATE comments c
+      SET user_id = p.user_id
+      FROM posts p
+      WHERE c.post_id = p.id 
+        AND c.user_id IS NULL
+      RETURNING c.id, c.user_id
+    `);
+
+    res.json({
+      message: `Fixed ${result.rows.length} orphaned comments`,
+      fixedComments: result.rows,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

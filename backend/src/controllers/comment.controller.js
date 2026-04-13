@@ -12,6 +12,11 @@ exports.addComment = async (req, res) => {
     console.log("💬 User ID:", userId);
     console.log("💬 Content:", content);
 
+    // ✅ Check if user is authenticated
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
     if (!content || content.trim().length === 0) {
       return res.status(400).json({ error: "Comment content is required" });
     }
@@ -22,11 +27,11 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ error: "Post not found" });
     }
 
-    // Create comment
+    // Create comment with user_id
     const comment = await Comment.create({
       content: content.trim(),
       post_id: postId,
-      user_id: userId,
+      user_id: userId, // ✅ Make sure this is not null
     });
 
     // Get full comment with user info
@@ -35,20 +40,13 @@ exports.addComment = async (req, res) => {
     // Get updated comment count
     const commentCount = await Comment.getCount(postId);
 
-    console.log("💬 Comment added:", fullComment.id);
+    console.log("💬 Comment added:", fullComment);
 
     // Get io instance and emit real-time event
     const io = req.app.get("io");
 
-    // Emit to post room (users viewing this specific post)
     io.to(`post-${postId}`).emit("new-comment", {
       comment: fullComment,
-      postId,
-      commentCount,
-    });
-
-    // Also emit to feed for real-time feed updates
-    io.emit("feed-comment-updated", {
       postId,
       commentCount,
     });

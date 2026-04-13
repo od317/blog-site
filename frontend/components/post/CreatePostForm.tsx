@@ -7,13 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 
-// ============================================
-// COMPONENT: Create Post Form
-// RENDERING: Client Component
-// STATE MANAGEMENT: useTransition for pending state
-// WHY: Optimistic UI updates, better user experience
-// ============================================
-
 export function CreatePostForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -27,7 +20,6 @@ export function CreatePostForm() {
     setError(null);
     setSuccess(null);
 
-    // Validate
     if (!title.trim()) {
       setError("Title is required");
       return;
@@ -38,11 +30,15 @@ export function CreatePostForm() {
       return;
     }
 
-    // Use startTransition for better UX
+    // Get cookies from browser
+    const cookieString = document.cookie;
+    console.log("📝 Client cookies:", cookieString);
+
     startTransition(async () => {
       const result = await createPost({
         title: title.trim(),
         content: content.trim(),
+        cookieString, // Pass cookies to server action
       });
 
       if (result.success) {
@@ -50,7 +46,6 @@ export function CreatePostForm() {
         setTitle("");
         setContent("");
 
-        // Redirect after short delay
         setTimeout(() => {
           router.push(`/posts/${result.post?.id}`);
           router.refresh();
@@ -71,7 +66,6 @@ export function CreatePostForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Title Input */}
         <Input
           placeholder="Post title"
           value={title}
@@ -80,9 +74,8 @@ export function CreatePostForm() {
           className="text-lg font-medium"
         />
 
-        {/* Content Textarea */}
         <textarea
-          placeholder="What's on your mind? (Markdown supported)"
+          placeholder="What's on your mind?"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           disabled={isPending}
@@ -90,27 +83,18 @@ export function CreatePostForm() {
           className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
         />
 
-        {/* Character counter */}
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>{content.length} characters</span>
-          <span>~{Math.ceil(content.split(/\s+/).length / 200)} min read</span>
-        </div>
-
-        {/* Error Message */}
         {error && (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
             {error}
           </div>
         )}
 
-        {/* Success Message */}
         {success && (
           <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600">
             {success}
           </div>
         )}
 
-        {/* Submit Button */}
         <Button
           type="submit"
           isLoading={isPending}

@@ -13,6 +13,7 @@ import { cookies } from "next/headers";
 interface CreatePostInput {
   title: string;
   content: string;
+  cookieString: string; // Add this
 }
 
 interface CreatePostResponse {
@@ -56,12 +57,10 @@ export async function createPost(
   data: CreatePostInput,
 ): Promise<CreatePostResponse> {
   console.log("🔧 SERVER ACTION: createPost called");
-  console.log("🔧 Data:", data);
-  console.log("🔧 NODE_ENV:", process.env.NODE_ENV);
-  console.log("🔧 NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
+  console.log("🔧 Cookies present:", !!data.cookieString);
+  console.log("🔧 Cookie string length:", data.cookieString?.length || 0);
 
   try {
-    // Validate input
     if (!data.title?.trim()) {
       return { success: false, error: "Title is required" };
     }
@@ -70,26 +69,15 @@ export async function createPost(
       return { success: false, error: "Content is required" };
     }
 
-    // ============================================
-    // IMPORTANT: Get cookies and forward them to the API
-    // ============================================
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-
-    console.log("🔧 Cookies present:", !!cookieString);
-    console.log("🔧 Cookie string length:", cookieString.length);
-
-    // Get API URL from environment
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts`;
 
-    // Make request to backend with cookies
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: cookieString, // Forward the cookies!
+        Cookie: data.cookieString, // Use the passed cookies
       },
       body: JSON.stringify({
         title: data.title.trim(),
@@ -99,7 +87,6 @@ export async function createPost(
 
     const responseData = await response.json();
     console.log("🔧 Response status:", response.status);
-    console.log("🔧 Response data:", responseData);
 
     if (!response.ok) {
       return {
@@ -108,7 +95,6 @@ export async function createPost(
       };
     }
 
-    // Revalidate affected paths
     revalidatePath("/");
     revalidatePath(`/profile/${responseData.username}`);
 

@@ -45,21 +45,36 @@ interface UpdatePostResponse {
   error?: string;
 }
 
-export async function createPost(data: { title: string; content: string }) {
+async function getAccessToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("accessToken")?.value;
+  console.log("🔧 Access token present:", !!accessToken);
+  return accessToken || null;
+}
+
+export async function createPost(data: {
+  title: string;
+  content: string;
+}): Promise<CreatePostResponse> {
   console.log("🔧 SERVER ACTION: createPost called");
   console.log("🔧 Data:", data);
   console.log("🔧 NODE_ENV:", process.env.NODE_ENV);
   console.log("🔧 NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
 
   try {
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-    console.log("🔧 Cookies present:", !!cookieString);
+    // Get the access token specifically
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      console.log("🔧 No access token found");
+      return {
+        success: false,
+        error: "Not authenticated. Please login again.",
+      };
+    }
 
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
-    console.log("🔧 Using API URL:", baseUrl);
-
     const url = `${baseUrl}/posts`;
     console.log("🔧 Full URL:", url);
 
@@ -67,7 +82,7 @@ export async function createPost(data: { title: string; content: string }) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: cookieString,
+        Authorization: `Bearer ${accessToken}`, // ✅ Send token in Authorization header
       },
       body: JSON.stringify(data),
     });
@@ -77,22 +92,32 @@ export async function createPost(data: { title: string; content: string }) {
     console.log("🔧 Response data:", responseData);
 
     if (!response.ok) {
-      return { success: false, error: responseData.error };
+      return {
+        success: false,
+        error: responseData.error || "Failed to create post",
+      };
     }
 
     revalidatePath("/");
+    revalidatePath(`/profile`);
+
     return { success: true, post: responseData };
   } catch (error) {
     console.error("🔧 Server action error:", error);
-    return { success: false, error: String(error) };
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
   }
 }
 
-export async function updatePost(
-  data: UpdatePostInput,
-): Promise<UpdatePostResponse> {
+export async function updatePost(data: {
+  id: string;
+  title: string;
+  content: string;
+}): Promise<UpdatePostResponse> {
   try {
-    // Validate input
     if (!data.title?.trim()) {
       return { success: false, error: "Title is required" };
     }
@@ -101,21 +126,24 @@ export async function updatePost(
       return { success: false, error: "Content is required" };
     }
 
-    // Get cookies for authentication
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
+    const accessToken = await getAccessToken();
 
-    // Get API URL from environment
+    if (!accessToken) {
+      return {
+        success: false,
+        error: "Not authenticated. Please login again.",
+      };
+    }
+
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${data.id}`;
 
-    // Make request to backend
     const response = await fetch(url, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Cookie: cookieString,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         title: data.title.trim(),
@@ -132,14 +160,10 @@ export async function updatePost(
       };
     }
 
-    // ============================================
-    // REVALIDATION STRATEGY
-    // Revalidate affected paths to show updated content
-    // ============================================
-    revalidatePath("/"); // Homepage feed
-    revalidatePath(`/posts/${data.id}`); // Current post page
-    revalidatePath(`/profile`); // Profile page
-    revalidatePath(`/posts/${data.id}/edit`); // Edit page
+    revalidatePath("/");
+    revalidatePath(`/posts/${data.id}`);
+    revalidatePath(`/profile`);
+    revalidatePath(`/posts/${data.id}/edit`);
 
     return {
       success: true,
@@ -155,16 +179,18 @@ export async function updatePost(
   }
 }
 
-// ============================================
-// SERVER ACTION: Delete Post
-// ============================================
-
 export async function deletePost(
   postId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      return {
+        success: false,
+        error: "Not authenticated. Please login again.",
+      };
+    }
 
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
@@ -173,7 +199,7 @@ export async function deletePost(
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        Cookie: cookieString,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
@@ -185,12 +211,8 @@ export async function deletePost(
       };
     }
 
-    // ============================================
-    // REVALIDATION STRATEGY
-    // Revalidate affected paths after deletion
-    // ============================================
-    revalidatePath("/"); // Homepage feed
-    revalidatePath(`/profile`); // Profile page
+    revalidatePath("/");
+    revalidatePath(`/profile`);
 
     return { success: true };
   } catch (error) {

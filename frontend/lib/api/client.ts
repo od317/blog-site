@@ -1,4 +1,10 @@
 import { config } from "../config";
+import {
+  getAccessToken,
+  setAuthTokens,
+  clearAuthTokens,
+  getRefreshToken as getRefreshTokenAction,
+} from "@/app/actions/auth.actions";
 
 export class ApiErrorClass extends Error {
   status: number;
@@ -28,7 +34,8 @@ export class TimeoutError extends Error {
 
 interface RequestOptions extends RequestInit {
   timeout?: number;
-  skipRefresh?: boolean; // Prevent refresh loops
+  skipRefresh?: boolean;
+  requiresAuth?: boolean; // Whether this request needs authentication
 }
 
 export class ApiClient {
@@ -54,7 +61,6 @@ export class ApiClient {
     try {
       const response = await fetch(url, {
         ...fetchOptions,
-        credentials: "include",
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -92,17 +98,43 @@ export class ApiClient {
     return data as T;
   }
 
-  // Refresh token method
-  private async refreshToken(): Promise<boolean> {
+  // Refresh token method - sends refresh token in request body
+  private async refreshToken(): Promise<{
+    success: boolean;
+    accessToken?: string;
+    refreshToken?: string;
+  }> {
     try {
+      // Get refresh token from HttpOnly cookie via Server Action
+      const refreshToken = await getRefreshTokenAction();
+
+      if (!refreshToken) {
+        return { success: false };
+      }
+
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: "POST",
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken }),
       });
-      return response.ok;
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.accessToken) {
+        // Update tokens in HttpOnly cookies
+        await setAuthTokens(
+          data.accessToken,
+          data.refreshToken || refreshToken,
+        );
+        return { success: true, accessToken: data.accessToken };
+      }
+
+      return { success: false };
     } catch (error) {
       console.error("Refresh token failed:", error);
-      return false;
+      return { success: false };
     }
   }
 
@@ -114,7 +146,6 @@ export class ApiClient {
 
   private async attemptRefresh(): Promise<boolean> {
     if (this.isRefreshing) {
-      // Wait for the ongoing refresh
       return new Promise((resolve) => {
         this.refreshSubscribers.push(() => resolve(true));
       });
@@ -123,14 +154,20 @@ export class ApiClient {
     this.isRefreshing = true;
 
     try {
-      const success = await this.refreshToken();
-      if (success) {
-        this.onRefreshed("");
+      const result = await this.refreshToken();
+      if (result.success && result.accessToken) {
+        this.onRefreshed(result.accessToken);
       }
-      return success;
+      return result.success;
     } finally {
       this.isRefreshing = false;
     }
+  }
+
+  // Get auth token for request header
+  private async getAuthToken(): Promise<string | null> {
+    const token = await getAccessToken();
+    return token ?? null; // Convert undefined to null
   }
 
   async request<T>(
@@ -148,16 +185,42 @@ export class ApiClient {
       endpoint.includes("/auth/verify") ||
       endpoint.includes("/auth/resend-verification");
 
+    // Add Authorization header if needed
+    const requiresAuth = options.requiresAuth !== false && !isAuthEndpoint;
+    let authToken: string | null = null;
+
+    if (requiresAuth) {
+      authToken = await this.getAuthToken();
+    }
+
     try {
-      const response = await this.fetchWithTimeout(url, options);
+      // Build headers properly
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // Add custom headers from options
+      if (options.headers) {
+        const customHeaders = options.headers as Record<string, string>;
+        Object.assign(headers, customHeaders);
+      }
+
+      if (requiresAuth && authToken) {
+        headers["Authorization"] = `Bearer ${authToken}`;
+      }
+
+      const response = await this.fetchWithTimeout(url, {
+        ...options,
+        headers,
+      });
 
       // If 401 and we haven't retried yet, try to refresh token
-      // Skip for auth endpoints
       if (
         response.status === 401 &&
         retryCount < maxRetries &&
         !options.skipRefresh &&
-        !isAuthEndpoint // Don't try to refresh for auth endpoints
+        !isAuthEndpoint &&
+        requiresAuth
       ) {
         console.log("🔄 Token expired, attempting refresh...");
 
@@ -168,6 +231,7 @@ export class ApiClient {
           return this.request(endpoint, options, retryCount + 1);
         } else {
           console.log("❌ Refresh failed, redirecting to login...");
+          await clearAuthTokens();
           throw new ApiErrorClass(401, "Session expired. Please login again.");
         }
       }
@@ -181,10 +245,6 @@ export class ApiClient {
   async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
       ...options,
     });
   }
@@ -197,10 +257,6 @@ export class ApiClient {
     console.log("Sending post data:", data);
     return this.request<T>(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
       body: data ? JSON.stringify(data) : undefined,
       ...options,
     });
@@ -213,10 +269,6 @@ export class ApiClient {
   ): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
       body: data ? JSON.stringify(data) : undefined,
       ...options,
     });
@@ -225,10 +277,6 @@ export class ApiClient {
   async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, {
       method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
       ...options,
     });
   }

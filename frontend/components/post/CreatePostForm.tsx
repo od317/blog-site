@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPost } from "@/app/actions/post.actions";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import { api } from "@/lib/api/client";
 
 // ============================================
 // COMPONENT: Create Post Form
 // RENDERING: Client Component
-// STATE MANAGEMENT: useTransition for pending state
-// WHY: Optimistic UI updates, better user experience
+// WHY: Direct API call instead of server action for testing
 // ============================================
 
 export function CreatePostForm() {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const { isAuthenticated } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,15 @@ export function CreatePostForm() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    // Check authentication
+    if (!isAuthenticated) {
+      setError("Please login to create a post");
+      setTimeout(() => {
+        router.push("/login");
+      }, 1500);
+      return;
+    }
 
     // Validate
     if (!title.trim()) {
@@ -38,27 +48,30 @@ export function CreatePostForm() {
       return;
     }
 
-    // Use startTransition for better UX
-    startTransition(async () => {
-      const result = await createPost({
+    setIsSubmitting(true);
+
+    try {
+      // Direct API call using the api client (handles cookies automatically)
+      const response = await api.post("/posts", {
         title: title.trim(),
         content: content.trim(),
       });
 
-      if (result.success) {
-        setSuccess("Post created successfully!");
-        setTitle("");
-        setContent("");
+      setSuccess("Post created successfully!");
+      setTitle("");
+      setContent("");
 
-        // Redirect after short delay
-        setTimeout(() => {
-          router.push(`/posts/${result.post?.id}`);
-          router.refresh();
-        }, 1500);
-      } else {
-        setError(result.error || "Failed to create post");
-      }
-    });
+      // Redirect after short delay
+      // setTimeout(() => {
+      //   // router.push(`/posts/${response.id}`);
+      //   // router.refresh();
+      // }, 1500);
+    } catch (err: any) {
+      console.error("Create post error:", err);
+      setError(err.message || "Failed to create post");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -76,7 +89,7 @@ export function CreatePostForm() {
           placeholder="Post title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          disabled={isPending}
+          disabled={isSubmitting}
           className="text-lg font-medium"
         />
 
@@ -85,7 +98,7 @@ export function CreatePostForm() {
           placeholder="What's on your mind? (Markdown supported)"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          disabled={isPending}
+          disabled={isSubmitting}
           rows={6}
           className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
         />
@@ -113,11 +126,11 @@ export function CreatePostForm() {
         {/* Submit Button */}
         <Button
           type="submit"
-          isLoading={isPending}
+          isLoading={isSubmitting}
           disabled={!title.trim() || !content.trim()}
           className="w-full sm:w-auto"
         >
-          {isPending ? "Creating..." : "Publish Post"}
+          {isSubmitting ? "Creating..." : "Publish Post"}
         </Button>
       </form>
     </Card>

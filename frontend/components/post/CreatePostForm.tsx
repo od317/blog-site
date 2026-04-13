@@ -1,14 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { createPost } from "@/app/actions/post.actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 
+// ============================================
+// COMPONENT: Create Post Form
+// RENDERING: Client Component
+// STATE MANAGEMENT: useTransition for pending state
+// WHY: Optimistic UI updates, better user experience
+// ============================================
+
 export function CreatePostForm() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +27,7 @@ export function CreatePostForm() {
     setError(null);
     setSuccess(null);
 
+    // Validate
     if (!title.trim()) {
       setError("Title is required");
       return;
@@ -29,41 +38,27 @@ export function CreatePostForm() {
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-        }),
+    // Use startTransition for better UX
+    startTransition(async () => {
+      const result = await createPost({
+        title: title.trim(),
+        content: content.trim(),
       });
 
-      const data = await response.json();
+      if (result.success) {
+        setSuccess("Post created successfully!");
+        setTitle("");
+        setContent("");
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create post");
+        // Redirect after short delay
+        setTimeout(() => {
+          router.push(`/posts/${result.post?.id}`);
+          router.refresh();
+        }, 1500);
+      } else {
+        setError(result.error || "Failed to create post");
       }
-
-      setSuccess("Post created successfully!");
-      setTitle("");
-      setContent("");
-
-      router.refresh();
-
-      setTimeout(() => {
-        router.push(`/posts/${data.id}`);
-      }, 1500);
-    } catch (err: any) {
-      setError(err.message || "Failed to create post");
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   return (
@@ -76,42 +71,53 @@ export function CreatePostForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Title Input */}
         <Input
           placeholder="Post title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          disabled={isLoading}
+          disabled={isPending}
           className="text-lg font-medium"
         />
 
+        {/* Content Textarea */}
         <textarea
-          placeholder="What's on your mind?"
+          placeholder="What's on your mind? (Markdown supported)"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          disabled={isLoading}
+          disabled={isPending}
           rows={6}
           className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
         />
 
+        {/* Character counter */}
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>{content.length} characters</span>
+          <span>~{Math.ceil(content.split(/\s+/).length / 200)} min read</span>
+        </div>
+
+        {/* Error Message */}
         {error && (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
             {error}
           </div>
         )}
 
+        {/* Success Message */}
         {success && (
           <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600">
             {success}
           </div>
         )}
 
+        {/* Submit Button */}
         <Button
           type="submit"
-          isLoading={isLoading}
+          isLoading={isPending}
           disabled={!title.trim() || !content.trim()}
           className="w-full sm:w-auto"
         >
-          Publish Post
+          {isPending ? "Creating..." : "Publish Post"}
         </Button>
       </form>
     </Card>

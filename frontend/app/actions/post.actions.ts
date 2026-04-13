@@ -9,10 +9,10 @@ import { cookies } from "next/headers";
 // WHY: Secure, handles authentication, no client API calls
 // CACHE: Revalidate affected paths after creation
 // ============================================
+
 interface CreatePostInput {
   title: string;
   content: string;
-  // Remove cookieString - Next.js handles this automatically
 }
 
 interface CreatePostResponse {
@@ -45,20 +45,11 @@ interface UpdatePostResponse {
   error?: string;
 }
 
-async function getAccessToken(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("accessToken")?.value;
-  console.log("🔧 Access token present:", !!accessToken);
-  return accessToken || null;
-}
-
 export async function createPost(
   data: CreatePostInput,
 ): Promise<CreatePostResponse> {
-  console.log("🔧 SERVER ACTION: createPost called");
-  console.log("🔧 NODE_ENV:", process.env.NODE_ENV);
-
   try {
+    // Validate input
     if (!data.title?.trim()) {
       return { success: false, error: "Title is required" };
     }
@@ -67,16 +58,16 @@ export async function createPost(
       return { success: false, error: "Content is required" };
     }
 
-    // ✅ Get cookies using Next.js API - works with HttpOnly cookies
+    // Get cookies for authentication
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
 
-    console.log("🔧 Cookie string length:", cookieString.length);
-    console.log("🔧 Has accessToken:", cookieString.includes("accessToken"));
-
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    // Get API URL from environment
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts`;
 
+    // Make request to backend
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -90,7 +81,6 @@ export async function createPost(
     });
 
     const responseData = await response.json();
-    console.log("🔧 Response status:", response.status);
 
     if (!response.ok) {
       return {
@@ -99,8 +89,13 @@ export async function createPost(
       };
     }
 
-    revalidatePath("/");
-    revalidatePath(`/profile/${responseData.username}`);
+    // ============================================
+    // REVALIDATION STRATEGY
+    // Revalidate affected paths to show new content
+    // ============================================
+    revalidatePath("/"); // Homepage feed
+    revalidatePath(`/profile/${responseData.username}`); // User's profile
+    revalidatePath("/posts"); // Posts list (if exists)
 
     return {
       success: true,
@@ -116,12 +111,11 @@ export async function createPost(
   }
 }
 
-export async function updatePost(data: {
-  id: string;
-  title: string;
-  content: string;
-}): Promise<UpdatePostResponse> {
+export async function updatePost(
+  data: UpdatePostInput,
+): Promise<UpdatePostResponse> {
   try {
+    // Validate input
     if (!data.title?.trim()) {
       return { success: false, error: "Title is required" };
     }
@@ -130,23 +124,21 @@ export async function updatePost(data: {
       return { success: false, error: "Content is required" };
     }
 
-    const accessToken = await getAccessToken();
+    // Get cookies for authentication
+    const cookieStore = await cookies();
+    const cookieString = cookieStore.toString();
 
-    if (!accessToken) {
-      return {
-        success: false,
-        error: "Not authenticated. Please login again.",
-      };
-    }
-
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    // Get API URL from environment
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${data.id}`;
 
+    // Make request to backend
     const response = await fetch(url, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
+        Cookie: cookieString,
       },
       body: JSON.stringify({
         title: data.title.trim(),
@@ -163,10 +155,14 @@ export async function updatePost(data: {
       };
     }
 
-    revalidatePath("/");
-    revalidatePath(`/posts/${data.id}`);
-    revalidatePath(`/profile`);
-    revalidatePath(`/posts/${data.id}/edit`);
+    // ============================================
+    // REVALIDATION STRATEGY
+    // Revalidate affected paths to show updated content
+    // ============================================
+    revalidatePath("/"); // Homepage feed
+    revalidatePath(`/posts/${data.id}`); // Current post page
+    revalidatePath(`/profile`); // Profile page
+    revalidatePath(`/posts/${data.id}/edit`); // Edit page
 
     return {
       success: true,
@@ -182,26 +178,25 @@ export async function updatePost(data: {
   }
 }
 
+// ============================================
+// SERVER ACTION: Delete Post
+// ============================================
+
 export async function deletePost(
   postId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const accessToken = await getAccessToken();
+    const cookieStore = await cookies();
+    const cookieString = cookieStore.toString();
 
-    if (!accessToken) {
-      return {
-        success: false,
-        error: "Not authenticated. Please login again.",
-      };
-    }
-
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${postId}`;
 
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Cookie: cookieString,
       },
     });
 
@@ -213,8 +208,12 @@ export async function deletePost(
       };
     }
 
-    revalidatePath("/");
-    revalidatePath(`/profile`);
+    // ============================================
+    // REVALIDATION STRATEGY
+    // Revalidate affected paths after deletion
+    // ============================================
+    revalidatePath("/"); // Homepage feed
+    revalidatePath(`/profile`); // Profile page
 
     return { success: true };
   } catch (error) {

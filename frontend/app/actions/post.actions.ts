@@ -52,43 +52,53 @@ async function getAccessToken(): Promise<string | null> {
   return accessToken || null;
 }
 
-export async function createPost(data: {
-  title: string;
-  content: string;
-}): Promise<CreatePostResponse> {
+export async function createPost(
+  data: CreatePostInput,
+): Promise<CreatePostResponse> {
   console.log("🔧 SERVER ACTION: createPost called");
   console.log("🔧 Data:", data);
   console.log("🔧 NODE_ENV:", process.env.NODE_ENV);
   console.log("🔧 NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
 
   try {
-    // Get the access token specifically
-    const accessToken = await getAccessToken();
-
-    if (!accessToken) {
-      console.log("🔧 No access token found");
-      return {
-        success: false,
-        error: "Not authenticated. Please login again.",
-      };
+    // Validate input
+    if (!data.title?.trim()) {
+      return { success: false, error: "Title is required" };
     }
 
+    if (!data.content?.trim()) {
+      return { success: false, error: "Content is required" };
+    }
+
+    // ============================================
+    // IMPORTANT: Get cookies and forward them to the API
+    // ============================================
+    const cookieStore = await cookies();
+    const cookieString = cookieStore.toString();
+
+    console.log("🔧 Cookies present:", !!cookieString);
+    console.log("🔧 Cookie string length:", cookieString.length);
+
+    // Get API URL from environment
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts`;
-    console.log("🔧 Full URL:", url);
 
+    // Make request to backend with cookies
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`, // ✅ Send token in Authorization header
+        Cookie: cookieString, // Forward the cookies!
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        title: data.title.trim(),
+        content: data.content.trim(),
+      }),
     });
 
-    console.log("🔧 Response status:", response.status);
     const responseData = await response.json();
+    console.log("🔧 Response status:", response.status);
     console.log("🔧 Response data:", responseData);
 
     if (!response.ok) {
@@ -98,12 +108,16 @@ export async function createPost(data: {
       };
     }
 
+    // Revalidate affected paths
     revalidatePath("/");
-    revalidatePath(`/profile`);
+    revalidatePath(`/profile/${responseData.username}`);
 
-    return { success: true, post: responseData };
+    return {
+      success: true,
+      post: responseData,
+    };
   } catch (error) {
-    console.error("🔧 Server action error:", error);
+    console.error("Create post action error:", error);
     return {
       success: false,
       error:

@@ -12,7 +12,7 @@ async function getPost(id: string): Promise<Post | null> {
 
     // Build URL
     const baseUrl = 
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+      "http://backend:5000/api";
     const url = `${baseUrl}/posts/${id}`;
 
     // Fetch from your backend API

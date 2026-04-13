@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPost } from "@/app/actions/post.actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 
 export function CreatePostForm() {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,26 +29,40 @@ export function CreatePostForm() {
       return;
     }
 
-    // ✅ No need to pass cookies - Next.js handles it automatically
-    startTransition(async () => {
-      const result = await createPost({
-        title: title.trim(),
-        content: content.trim(),
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/posts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+        }),
       });
 
-      if (result.success) {
-        setSuccess("Post created successfully!");
-        setTitle("");
-        setContent("");
+      const data = await response.json();
 
-        setTimeout(() => {
-          router.push(`/posts/${result.post?.id}`);
-          router.refresh();
-        }, 1500);
-      } else {
-        setError(result.error || "Failed to create post");
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create post");
       }
-    });
+
+      setSuccess("Post created successfully!");
+      setTitle("");
+      setContent("");
+
+      router.refresh();
+
+      setTimeout(() => {
+        router.push(`/posts/${data.id}`);
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || "Failed to create post");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -66,7 +79,7 @@ export function CreatePostForm() {
           placeholder="Post title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          disabled={isPending}
+          disabled={isLoading}
           className="text-lg font-medium"
         />
 
@@ -74,7 +87,7 @@ export function CreatePostForm() {
           placeholder="What's on your mind?"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          disabled={isPending}
+          disabled={isLoading}
           rows={6}
           className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
         />
@@ -93,11 +106,11 @@ export function CreatePostForm() {
 
         <Button
           type="submit"
-          isLoading={isPending}
+          isLoading={isLoading}
           disabled={!title.trim() || !content.trim()}
           className="w-full sm:w-auto"
         >
-          {isPending ? "Creating..." : "Publish Post"}
+          Publish Post
         </Button>
       </form>
     </Card>

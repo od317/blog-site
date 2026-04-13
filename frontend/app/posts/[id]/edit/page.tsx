@@ -15,7 +15,7 @@ async function getPost(id: string): Promise<Post | null> {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
     const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+      "http://backend:5000/api";
     const url = `${baseUrl}/posts/${id}`;
 
     const response = await fetch(url, {

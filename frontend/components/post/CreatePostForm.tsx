@@ -36,8 +36,8 @@ export function CreatePostForm() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          credentials: "include",
         },
+        credentials: "include", // ✅ IMPORTANT: This sends cookies!
         body: JSON.stringify({
           title: title.trim(),
           content: content.trim(),

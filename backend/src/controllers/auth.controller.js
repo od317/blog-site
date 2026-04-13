@@ -7,8 +7,6 @@ const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
-  setTokenCookies,
-  clearTokenCookies,
 } = require("../utils/tokens");
 
 // Register new user
@@ -38,8 +36,7 @@ exports.register = async (req, res) => {
       full_name,
     });
 
-    // REMOVED: verification token logic
-    // Instead, set user as verified immediately
+    // Auto-verify users (no email verification needed)
     await User.setVerified(user.id, true);
 
     // Generate tokens
@@ -50,9 +47,7 @@ exports.register = async (req, res) => {
     refreshExpires.setDate(refreshExpires.getDate() + 7);
     await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
 
-    // Set cookies
-    setTokenCookies(res, accessToken, refreshToken);
-
+    // Return tokens in response body (NO COOKIES!)
     res.status(201).json({
       message: "Registration successful! You are now logged in.",
       user: {
@@ -62,6 +57,8 @@ exports.register = async (req, res) => {
         full_name: user.full_name,
         is_verified: true,
       },
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -69,7 +66,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user - use cookies ONLY
+// Login user - returns tokens in response body
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -84,7 +81,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // Generate token (NO COOKIES!)
+    // Generate tokens
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
@@ -110,19 +107,18 @@ exports.login = async (req, res) => {
     res.json({
       message: "Login successful",
       user: userData,
-      accessToken, // Frontend will store this
-      refreshToken, // Frontend will store this
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: "Login failed" });
+    res.status(500).json({ error: "Login failed. Please try again." });
   }
 };
 
+// Validate token endpoint
 exports.validateToken = async (req, res) => {
   try {
-    // The authMiddleware already validated the token
-    // If we get here, the token is valid
     const user = await User.findById(req.userId);
 
     if (!user) {
@@ -132,7 +128,6 @@ exports.validateToken = async (req, res) => {
       });
     }
 
-    // Return success with user info
     res.json({
       valid: true,
       user: {
@@ -151,37 +146,44 @@ exports.validateToken = async (req, res) => {
   }
 };
 
-// Refresh token endpoint - read from cookie, return new access token in cookie
-// In your auth controller
+// Refresh token endpoint - receives refresh token in request body
 exports.refreshToken = async (req, res) => {
   try {
     console.log("=== REFRESH TOKEN DEBUG ===");
-    console.log("Cookies received:", req.cookies);
+    console.log("Request body:", req.body);
 
-    const oldRefreshToken = req.cookies.refreshToken;
+    // Get refresh token from request body (not cookie!)
+    const { refreshToken: oldRefreshToken } = req.body;
 
     if (!oldRefreshToken) {
-      return res.status(401).json({ error: "No refresh token provided" });
+      return res.status(401).json({
+        success: false,
+        error: "No refresh token provided",
+      });
     }
 
-    console.log("✅ Refresh token found in cookie");
+    console.log("✅ Refresh token found in request body");
 
     // Verify the old refresh token
     const decoded = verifyRefreshToken(oldRefreshToken);
     if (!decoded) {
       console.log("❌ Refresh token verification failed");
-      return res
-        .status(401)
-        .json({ error: "Invalid or expired refresh token" });
+      return res.status(401).json({
+        success: false,
+        error: "Invalid or expired refresh token",
+      });
     }
 
     console.log("✅ Token verified, user ID:", decoded.id);
 
-    // Find user by ID (NOT by refresh token string)
+    // Find user by ID
     const user = await User.findById(decoded.id);
     if (!user) {
       console.log("❌ User not found");
-      return res.status(401).json({ error: "User not found" });
+      return res.status(401).json({
+        success: false,
+        error: "User not found",
+      });
     }
 
     console.log("✅ User found:", user.id);
@@ -189,14 +191,18 @@ exports.refreshToken = async (req, res) => {
     // Check if the refresh token matches and is not expired
     if (user.refresh_token !== oldRefreshToken) {
       console.log("❌ Refresh token mismatch");
-      console.log("DB token:", user.refresh_token?.substring(0, 50));
-      console.log("Cookie token:", oldRefreshToken.substring(0, 50));
-      return res.status(401).json({ error: "Invalid refresh token" });
+      return res.status(401).json({
+        success: false,
+        error: "Invalid refresh token",
+      });
     }
 
     if (user.refresh_token_expires < new Date()) {
       console.log("❌ Refresh token expired in DB");
-      return res.status(401).json({ error: "Refresh token expired" });
+      return res.status(401).json({
+        success: false,
+        error: "Refresh token expired",
+      });
     }
 
     console.log("✅ Refresh token valid");
@@ -212,16 +218,19 @@ exports.refreshToken = async (req, res) => {
 
     console.log("✅ New tokens generated and saved");
 
-    // Set new tokens as cookies
-    setTokenCookies(res, newAccessToken, newRefreshToken);
-
+    // Return new tokens in response body (NO COOKIES!)
     res.json({
+      success: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
       message: "Tokens refreshed successfully",
-      rotated: true,
     });
   } catch (error) {
     console.error("Refresh token error:", error);
-    res.status(500).json({ error: "Failed to refresh token" });
+    res.status(500).json({
+      success: false,
+      error: "Failed to refresh token",
+    });
   }
 };
 
@@ -234,7 +243,6 @@ exports.logout = async (req, res) => {
       await User.clearRefreshToken(userId);
     }
 
-    clearTokenCookies(res);
     res.json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
@@ -242,7 +250,7 @@ exports.logout = async (req, res) => {
   }
 };
 
-// Get current user - no token needed, cookie is sent automatically
+// Get current user
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.userId);

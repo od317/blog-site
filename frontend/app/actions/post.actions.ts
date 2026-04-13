@@ -1,14 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-
-// ============================================
-// SERVER ACTION: Create Post
-// WHERE: Server-side (Next.js Server Action)
-// WHY: Secure, handles authentication, no client API calls
-// CACHE: Revalidate affected paths after creation
-// ============================================
+import {
+  getAccessToken,
+  getRefreshToken,
+  setAuthTokens,
+  clearAuthTokens,
+} from "./auth.actions";
 
 interface CreatePostInput {
   title: string;
@@ -45,6 +43,57 @@ interface UpdatePostResponse {
   error?: string;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+
+// Helper for authenticated requests
+async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
+  const accessToken = await getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("Not authenticated");
+  }
+
+  const makeRequest = async (token: string) => {
+    return fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+  };
+
+  let response = await makeRequest(accessToken);
+
+  // If token expired, try to refresh
+  if (response.status === 401) {
+    const refreshToken = await getRefreshToken();
+
+    if (refreshToken) {
+      const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (refreshResponse.ok) {
+        const { accessToken: newAccessToken } = await refreshResponse.json();
+        await setAuthTokens(newAccessToken, refreshToken);
+        response = await makeRequest(newAccessToken);
+      } else {
+        await clearAuthTokens();
+        throw new Error("Session expired. Please login again.");
+      }
+    } else {
+      await clearAuthTokens();
+      throw new Error("Session expired. Please login again.");
+    }
+  }
+
+  return response;
+}
+
 export async function createPost(
   data: CreatePostInput,
 ): Promise<CreatePostResponse> {
@@ -58,22 +107,8 @@ export async function createPost(
       return { success: false, error: "Content is required" };
     }
 
-    // Get cookies for authentication
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-
-    // Get API URL from environment
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
-    const url = `${baseUrl}/posts`;
-
-    // Make request to backend
-    const response = await fetch(url, {
+    const response = await authenticatedFetch("/posts", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieString,
-      },
       body: JSON.stringify({
         title: data.title.trim(),
         content: data.content.trim(),
@@ -89,13 +124,10 @@ export async function createPost(
       };
     }
 
-    // ============================================
-    // REVALIDATION STRATEGY
-    // Revalidate affected paths to show new content
-    // ============================================
-    revalidatePath("/"); // Homepage feed
-    revalidatePath(`/profile/${responseData.username}`); // User's profile
-    revalidatePath("/posts"); // Posts list (if exists)
+    // Revalidate affected paths
+    revalidatePath("/");
+    revalidatePath(`/profile/${responseData.username}`);
+    revalidatePath("/posts");
 
     return {
       success: true,
@@ -115,7 +147,6 @@ export async function updatePost(
   data: UpdatePostInput,
 ): Promise<UpdatePostResponse> {
   try {
-    // Validate input
     if (!data.title?.trim()) {
       return { success: false, error: "Title is required" };
     }
@@ -124,22 +155,8 @@ export async function updatePost(
       return { success: false, error: "Content is required" };
     }
 
-    // Get cookies for authentication
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-
-    // Get API URL from environment
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
-    const url = `${baseUrl}/posts/${data.id}`;
-
-    // Make request to backend
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(`/posts/${data.id}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieString,
-      },
       body: JSON.stringify({
         title: data.title.trim(),
         content: data.content.trim(),
@@ -155,14 +172,10 @@ export async function updatePost(
       };
     }
 
-    // ============================================
-    // REVALIDATION STRATEGY
-    // Revalidate affected paths to show updated content
-    // ============================================
-    revalidatePath("/"); // Homepage feed
-    revalidatePath(`/posts/${data.id}`); // Current post page
-    revalidatePath(`/profile`); // Profile page
-    revalidatePath(`/posts/${data.id}/edit`); // Edit page
+    revalidatePath("/");
+    revalidatePath(`/posts/${data.id}`);
+    revalidatePath(`/profile`);
+    revalidatePath(`/posts/${data.id}/edit`);
 
     return {
       success: true,
@@ -178,26 +191,12 @@ export async function updatePost(
   }
 }
 
-// ============================================
-// SERVER ACTION: Delete Post
-// ============================================
-
 export async function deletePost(
   postId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
-    const url = `${baseUrl}/posts/${postId}`;
-
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(`/posts/${postId}`, {
       method: "DELETE",
-      headers: {
-        Cookie: cookieString,
-      },
     });
 
     if (!response.ok) {
@@ -208,12 +207,8 @@ export async function deletePost(
       };
     }
 
-    // ============================================
-    // REVALIDATION STRATEGY
-    // Revalidate affected paths after deletion
-    // ============================================
-    revalidatePath("/"); // Homepage feed
-    revalidatePath(`/profile`); // Profile page
+    revalidatePath("/");
+    revalidatePath(`/profile`);
 
     return { success: true };
   } catch (error) {

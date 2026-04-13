@@ -6,17 +6,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { loginSchema, LoginInput } from "@/lib/validations/auth";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuthStore } from "@/lib/store/authStore";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { setAuthTokens } from "@/app/actions/auth.actions";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
 
 export function LoginForm() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
-
-  // State management
+  const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [autoDismissTimer, setAutoDismissTimer] =
     useState<NodeJS.Timeout | null>(null);
@@ -34,18 +34,50 @@ export function LoginForm() {
   });
 
   const onSubmit = async (data: LoginInput) => {
-    // Clear all messages
     setServerError(null);
-    setResendMessage(null);
     setSuccessMessage(null);
+    setIsLoading(true);
 
-    const result = await login(data.email, data.password);
+    try {
+      // Call backend directly
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
+      });
+      console.log(response);
+      const result = await response.json();
 
-    if (result.success) {
-      router.push("/");
-      router.refresh();
-    } else if (result.error) {
-      setServerError(result.error);
+      if (response.ok) {
+        // Store tokens in HttpOnly cookies via Server Action
+        await setAuthTokens(result.accessToken, result.refreshToken);
+
+        // Update Zustand store
+        useAuthStore.setState({
+          user: result.user,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
+
+        setSuccessMessage("Login successful! Redirecting...");
+
+        // Redirect after short delay
+        setTimeout(() => {
+          router.push("/");
+          router.refresh();
+        }, 1000);
+      } else {
+        setServerError(result.error || "Invalid email or password");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setServerError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -93,21 +125,6 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* Resend Message */}
-      {resendMessage && (
-        <div className="relative rounded-lg bg-green-50 p-3 text-sm text-green-600">
-          <span>{resendMessage}</span>
-          <button
-            type="button"
-            onClick={() => setResendMessage(null)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-green-600 hover:text-green-800"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       {/* Email Input */}
       <Input
         label="Email"
@@ -135,7 +152,7 @@ export function LoginForm() {
 
       {/* Sign Up Link */}
       <p className="text-center text-sm text-gray-600">
-        Dont have an account?{" "}
+        Do not have an account?{" "}
         <Link href="/register" className="text-blue-600 hover:underline">
           Sign up
         </Link>

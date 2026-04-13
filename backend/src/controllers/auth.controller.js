@@ -72,11 +72,6 @@ exports.register = async (req, res) => {
 // Login user - use cookies ONLY
 exports.login = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     const { email, password } = req.body;
 
     const user = await User.findByEmail(email);
@@ -89,9 +84,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // REMOVED: email verification check
-
-    // Generate tokens
+    // Generate token (NO COOKIES!)
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
@@ -100,9 +93,6 @@ exports.login = async (req, res) => {
     refreshExpires.setDate(refreshExpires.getDate() + 7);
     await User.saveRefreshToken(user.id, refreshToken, refreshExpires);
 
-    // Set cookies
-    setTokenCookies(res, accessToken, refreshToken);
-
     const userData = {
       id: user.id,
       username: user.username,
@@ -110,19 +100,22 @@ exports.login = async (req, res) => {
       full_name: user.full_name,
       avatar_url: user.avatar_url,
       bio: user.bio,
-      is_verified: true, // Always true now
+      is_verified: user.is_verified,
       followers_count: user.followers_count,
       following_count: user.following_count,
       created_at: user.created_at,
     };
 
+    // Return tokens in response body (NO COOKIES!)
     res.json({
       message: "Login successful",
       user: userData,
+      accessToken, // Frontend will store this
+      refreshToken, // Frontend will store this
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: "Login failed. Please try again." });
+    res.status(500).json({ error: "Login failed" });
   }
 };
 
@@ -262,5 +255,3 @@ exports.getMe = async (req, res) => {
     res.status(500).json({ error: "Failed to get user data" });
   }
 };
-
-

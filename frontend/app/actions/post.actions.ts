@@ -9,11 +9,10 @@ import { cookies } from "next/headers";
 // WHY: Secure, handles authentication, no client API calls
 // CACHE: Revalidate affected paths after creation
 // ============================================
-
 interface CreatePostInput {
   title: string;
   content: string;
-  cookieString: string; // Add this
+  // Remove cookieString - Next.js handles this automatically
 }
 
 interface CreatePostResponse {
@@ -57,8 +56,7 @@ export async function createPost(
   data: CreatePostInput,
 ): Promise<CreatePostResponse> {
   console.log("🔧 SERVER ACTION: createPost called");
-  console.log("🔧 Cookies present:", !!data.cookieString);
-  console.log("🔧 Cookie string length:", data.cookieString?.length || 0);
+  console.log("🔧 NODE_ENV:", process.env.NODE_ENV);
 
   try {
     if (!data.title?.trim()) {
@@ -69,6 +67,13 @@ export async function createPost(
       return { success: false, error: "Content is required" };
     }
 
+    // ✅ Get cookies using Next.js API - works with HttpOnly cookies
+    const cookieStore = await cookies();
+    const cookieString = cookieStore.toString();
+
+    console.log("🔧 Cookie string length:", cookieString.length);
+    console.log("🔧 Has accessToken:", cookieString.includes("accessToken"));
+
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts`;
@@ -77,7 +82,7 @@ export async function createPost(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: data.cookieString, // Use the passed cookies
+        Cookie: cookieString,
       },
       body: JSON.stringify({
         title: data.title.trim(),

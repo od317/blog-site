@@ -30,15 +30,11 @@ export function CreatePostForm() {
       return;
     }
 
-    // Get cookies from browser
-    const cookieString = document.cookie;
-    console.log("📝 Client cookies:", cookieString);
-
+    // ✅ No need to pass cookies - Next.js handles it automatically
     startTransition(async () => {
       const result = await createPost({
         title: title.trim(),
         content: content.trim(),
-        cookieString, // Pass cookies to server action
       });
 
       if (result.success) {

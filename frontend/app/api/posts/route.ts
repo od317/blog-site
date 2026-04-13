@@ -7,7 +7,8 @@ export async function POST(request: NextRequest) {
     const { title, content } = body;
 
     const cookieString = request.headers.get("cookie") || "";
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts`;
 
     const response = await fetch(url, {

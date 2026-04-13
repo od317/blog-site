@@ -18,54 +18,72 @@ export async function proxy(request: NextRequest) {
   const isPublicOnlyRoute = PUBLIC_ONLY_ROUTES.includes(pathname);
 
   // Public routes that both logged-in and non-logged-in users can access
-  // (like home page, about, etc.) - just allow them
   if (!requiresAuth && !isPublicOnlyRoute) {
     return NextResponse.next();
   }
 
   // Get the API URL from environment
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
 
-  // For public-only routes, we need to check if user is authenticated to redirect them
-  // For protected routes, we need to check if user is authenticated to allow access
   if (requiresAuth || isPublicOnlyRoute) {
     try {
-      // Use /auth/validate instead of /auth/me (lighter endpoint)
-      const validateResponse = await fetch(`${apiUrl}/auth/validate`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Cookie: request.headers.get("cookie") || "",
-        },
-      });
+      // Get the access token from the Authorization header
+      const authHeader = request.headers.get("authorization");
+      let accessToken: string | null = null;
 
-      const isAuthenticated = validateResponse.ok;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        accessToken = authHeader.substring(7);
+      }
 
-      // Handle protected routes - redirect to login if not authenticated
-      if (requiresAuth && !isAuthenticated) {
+      // If no token in header, try to get from cookie (for backward compatibility)
+      if (!accessToken) {
+        const cookieToken = request.cookies.get("accessToken")?.value;
+        if (cookieToken) {
+          accessToken = cookieToken;
+        }
+      }
+
+      // For protected routes, check if we have a token
+      // Note: We can't fully validate the token here without making an API call
+      // So we'll do a lightweight check and rely on the API to reject invalid tokens
+      const hasToken = !!accessToken;
+
+      // Handle protected routes - redirect to login if no token
+      if (requiresAuth && !hasToken) {
         const returnUrl = encodeURIComponent(pathname);
         const loginUrl = new URL(`/login?returnUrl=${returnUrl}`, request.url);
         return NextResponse.redirect(loginUrl);
       }
 
-      // Handle public-only routes - redirect to home if authenticated
-      if (isPublicOnlyRoute && isAuthenticated) {
+      // For public-only routes, we need to check if user is authenticated
+      if (isPublicOnlyRoute && hasToken) {
+        // Optional: Validate token with backend (adds latency)
+        // For better performance, you can skip this and just redirect
+        // based on token presence, but it's less secure
+
+        // If you want to validate, uncomment this:
+        /*
+        const validateResponse = await fetch(`${apiUrl}/auth/validate`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+          },
+        });
+        const isAuthenticated = validateResponse.ok;
+        
+        if (isAuthenticated) {
+          const returnUrl = request.nextUrl.searchParams.get("returnUrl");
+          const homeUrl = new URL(returnUrl || "/", request.url);
+          return NextResponse.redirect(homeUrl);
+        }
+        */
+
+        // Simple approach: redirect to home if token exists
         const returnUrl = request.nextUrl.searchParams.get("returnUrl");
         const homeUrl = new URL(returnUrl || "/", request.url);
         return NextResponse.redirect(homeUrl);
       }
 
-      // Forward any new cookies from the validation response
-      const response = NextResponse.next();
-      const newCookies = validateResponse.headers.get("set-cookie");
-      if (newCookies) {
-        const cookieStrings = newCookies.split(",");
-        for (const cookie of cookieStrings) {
-          response.headers.append("Set-Cookie", cookie);
-        }
-      }
-
-      return response;
+      return NextResponse.next();
     } catch (error) {
       console.error("Token validation error:", error);
 
@@ -74,11 +92,6 @@ export async function proxy(request: NextRequest) {
         const returnUrl = encodeURIComponent(pathname);
         const loginUrl = new URL(`/login?returnUrl=${returnUrl}`, request.url);
         return NextResponse.redirect(loginUrl);
-      }
-
-      // For public-only routes on error, allow access
-      if (isPublicOnlyRoute) {
-        return NextResponse.next();
       }
 
       return NextResponse.next();
@@ -90,15 +103,5 @@ export async function proxy(request: NextRequest) {
 
 // Configure which routes the middleware runs on
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     * - api routes (handled separately by backend)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|api|public).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api|public).*)"],
 };

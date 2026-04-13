@@ -112,7 +112,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           console.log("🔍 Validating token...");
           const validation = await authApi.validateToken();
-
+          console.log(validation);
           if (validation.valid) {
             console.log("✅ Token is valid");
             return true;

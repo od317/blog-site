@@ -73,6 +73,7 @@ export const authApi = {
    * Returns 401 if token is invalid or expired
    */
   validateToken: async (): Promise<ValidateTokenResponse> => {
+    console.log("validating token");
     return api.get<ValidateTokenResponse>("/auth/validate");
   },
 };

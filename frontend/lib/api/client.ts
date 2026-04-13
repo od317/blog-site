@@ -205,10 +205,8 @@ export class ApiClient {
         Object.assign(headers, customHeaders);
       }
 
-      if (requiresAuth && authToken) {
-        headers["Authorization"] = `Bearer ${authToken}`;
-      }
-
+      headers["Authorization"] = `Bearer ${authToken}`;
+      console.log("the token in header is ", authToken);
       const response = await this.fetchWithTimeout(url, {
         ...options,
         headers,

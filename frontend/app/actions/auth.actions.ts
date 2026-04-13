@@ -26,14 +26,16 @@ export async function setAuthTokens(accessToken: string, refreshToken: string) {
   console.log("✅ Auth tokens stored in HttpOnly cookies");
 }
 
-export async function getAccessToken(): Promise<string | undefined> {
+export async function getAccessToken(): Promise<string | null> {
   const cookieStore = await cookies();
-  return cookieStore.get("accessToken")?.value;
+  const token = cookieStore.get("accessToken")?.value;
+  return token ?? null; // Return null instead of undefined
 }
 
-export async function getRefreshToken(): Promise<string | undefined> {
+export async function getRefreshToken(): Promise<string | null> {
   const cookieStore = await cookies();
-  return cookieStore.get("refreshToken")?.value;
+  const token = cookieStore.get("refreshToken")?.value;
+  return token ?? null; // Return null instead of undefined
 }
 
 export async function clearAuthTokens() {

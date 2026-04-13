@@ -35,8 +35,10 @@ const setTokenCookies = (res, accessToken, refreshToken) => {
 
   // Common cookie settings for both tokens
   const baseSettings = {
+    httpOnly: true,
     secure: isProduction,
     sameSite: "none",
+    domain: '.onrender.com'
   };
 
   // Access token cookie - available everywhere
@@ -70,6 +72,7 @@ const clearTokenCookies = (res) => {
     httpOnly: true,
     secure: isProduction,
     sameSite: "none",
+    domain: ".onrender.com",
   };
 
   // Clear access token

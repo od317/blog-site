@@ -36,9 +36,9 @@ const setTokenCookies = (res, accessToken, refreshToken) => {
   // Common cookie settings for both tokens
   const baseSettings = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: "none",
-    domain: '.onrender.com'
+    secure: process.env.NODE_ENV === "production", // true on Render
+    sameSite: "none", // Required for cross-domain cookies
+    domain: process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
   };
 
   // Access token cookie - available everywhere
@@ -70,9 +70,9 @@ const clearTokenCookies = (res) => {
 
   const baseSettings = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: "none",
-    domain: ".onrender.com",
+    secure: process.env.NODE_ENV === "production", // true on Render
+    sameSite: "none", // Required for cross-domain cookies
+    domain: process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
   };
 
   // Clear access token

@@ -92,4 +92,46 @@ router.post("/recreate-comments-table", async (req, res) => {
   }
 });
 
+// Check comments for a specific post
+router.get("/post-comments/:postId", async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    // Get all comments for this post
+    const comments = await pool.query(
+      `
+      SELECT 
+        c.id,
+        c.content,
+        c.post_id,
+        c.user_id,
+        c.created_at,
+        u.username,
+        u.full_name,
+        u.avatar_url
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.post_id = $1
+      ORDER BY c.created_at DESC
+    `,
+      [postId],
+    );
+
+    // Also check if the post exists
+    const post = await pool.query("SELECT id, title FROM posts WHERE id = $1", [
+      postId,
+    ]);
+
+    res.json({
+      postExists: post.rows.length > 0,
+      post: post.rows[0] || null,
+      comments: comments.rows,
+      commentCount: comments.rows.length,
+    });
+  } catch (error) {
+    console.error("Error checking post comments:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

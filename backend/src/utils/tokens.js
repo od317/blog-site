@@ -37,7 +37,7 @@ const setTokenCookies = (res, accessToken, refreshToken) => {
   const baseSettings = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
+    sameSite: "none",
   };
 
   // Access token cookie - available everywhere
@@ -70,7 +70,7 @@ const clearTokenCookies = (res) => {
   const baseSettings = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
+    sameSite: "none",
   };
 
   // Clear access token

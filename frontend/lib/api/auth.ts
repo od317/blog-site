@@ -17,11 +17,18 @@ export interface ValidateTokenResponse {
   error?: string;
 }
 
+export interface RefreshTokenResponse {
+  success: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  message?: string;
+}
+
 export const authApi = {
   /**
    * Register a new user
    * @param data - User registration data
-   * @returns AuthResponse with user data (tokens are set as cookies)
+   * @returns AuthResponse with user data and tokens in response body
    */
   register: async (data: RegisterData): Promise<AuthResponse> => {
     return api.post<AuthResponse>("/auth/register", data);
@@ -30,32 +37,34 @@ export const authApi = {
   /**
    * Login user
    * @param credentials - Email and password
-   * @returns AuthResponse with user data (tokens are set as cookies)
+   * @returns AuthResponse with user data and tokens in response body
    */
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     return api.post<AuthResponse>("/auth/login", credentials);
   },
 
   /**
-   * Logout user - clears refresh token from database and cookies
+   * Logout user - clears refresh token from database
+   * Note: Frontend should also clear its own HttpOnly cookies
    */
   logout: async (): Promise<{ message: string }> => {
     return api.post<{ message: string }>("/auth/logout");
   },
 
   /**
-   * Get current user info (requires valid access token cookie)
+   * Get current user info (requires valid access token in Authorization header)
+   * The API client will automatically add the token from HttpOnly cookie
    */
   getMe: async (): Promise<User> => {
     return api.get<User>("/auth/me");
   },
 
   /**
-   * Refresh access token using refresh token cookie
-   * This is called automatically by the API client when receiving 401
+   * Refresh access token using refresh token
+   * @returns New access token (and optionally new refresh token)
    */
-  refreshToken: async (): Promise<{ message: string }> => {
-    return api.post<{ message: string }>("/auth/refresh");
+  refreshToken: async (): Promise<RefreshTokenResponse> => {
+    return api.post<RefreshTokenResponse>("/auth/refresh");
   },
 
   /**

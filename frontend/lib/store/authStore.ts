@@ -4,6 +4,7 @@ import { AuthState } from "@/types/auth";
 import { authApi } from "@/lib/api/auth";
 import { formatError } from "@/lib/utils/errors";
 import { getErrorMessage, isApiError } from "@/types/error";
+import { setAuthTokens, clearAuthTokens } from "@/app/actions/auth.actions";
 
 interface AuthStore extends AuthState {
   login: (
@@ -36,6 +37,11 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const response = await authApi.login({ email, password });
 
+          // Store tokens in HttpOnly cookies via Server Action
+          if (response.accessToken && response.refreshToken) {
+            await setAuthTokens(response.accessToken, response.refreshToken);
+          }
+
           set({
             user: response.user,
             isAuthenticated: true,
@@ -60,6 +66,11 @@ export const useAuthStore = create<AuthStore>()(
 
         try {
           const response = await authApi.register(data);
+
+          // Store tokens in HttpOnly cookies via Server Action
+          if (response.accessToken && response.refreshToken) {
+            await setAuthTokens(response.accessToken, response.refreshToken);
+          }
 
           set({
             user: response.user,
@@ -87,6 +98,8 @@ export const useAuthStore = create<AuthStore>()(
         } catch (error: unknown) {
           console.error("Logout error:", getErrorMessage(error));
         }
+        // Clear HttpOnly cookies
+        await clearAuthTokens();
         set({
           user: null,
           isAuthenticated: false,
@@ -106,17 +119,21 @@ export const useAuthStore = create<AuthStore>()(
           }
 
           console.log("🔄 Token invalid, attempting refresh...");
-          await authApi.refreshToken();
+          const refreshResponse = await authApi.refreshToken();
 
-          const newValidation = await authApi.validateToken();
-          if (newValidation.valid) {
+          if (refreshResponse.success && refreshResponse.accessToken) {
+            // Update the token in HttpOnly cookie
+            // Note: refresh token stays the same
+            await setAuthTokens(
+              refreshResponse.accessToken,
+              refreshResponse.refreshToken || "",
+            );
             console.log("✅ Token refreshed and valid");
             return true;
           }
 
           return false;
         } catch (error: unknown) {
-          // Check if it's a 401 error (expected for expired tokens)
           const isUnauthorized =
             (isApiError(error) && error.status === 401) ||
             getErrorMessage(error).includes("401");

@@ -4,18 +4,16 @@ import { usePostStore } from "@/lib/store/postStore";
 import {
   connectSocket,
   disconnectSocket,
-  getSocket,
-} from "@/lib/socket/client";
-import {
   onNewPost,
   onPostUpdated,
   onPostDeleted,
   onNewComment,
   onLikeUpdated,
-  onFeedLikeUpdated,
   onAuthenticated,
   onSubscribed,
-} from "@/lib/socket/events";
+  subscribeToFeed,
+  getSocket,
+} from "@/lib/socket/client";
 
 export function useRealtime() {
   const { isAuthenticated, user } = useAuthStore();
@@ -30,88 +28,74 @@ export function useRealtime() {
   useEffect(() => {
     if (isAuthenticated) {
       console.log("🔌 Initializing real-time connection...");
-      const socket = connectSocket();
 
-      // Authentication events
-      const unsubscribeAuth = onAuthenticated((data) => {
-        console.log("🔌 Socket authenticated:", data);
-        socket.emit("subscribe-feed");
-      });
+      const initSocket = async () => {
+        const socket = await connectSocket();
 
-      const unsubscribeSubscribed = onSubscribed((data) => {
-        console.log("🔌 Subscribed to channel:", data);
-      });
+        // Set up event listeners
+        const unsubscribeAuthenticated = onAuthenticated((data) => {
+          console.log("🔌 Socket authenticated:", data);
+          subscribeToFeed();
+        });
 
-      // Post events
-      const unsubscribeNewPost = onNewPost((post) => {
-        console.log("📢 Real-time: New post received", post);
-        if (post.user_id !== user?.id) {
-          addNewPost(post);
-        }
-      });
+        const unsubscribeSubscribed = onSubscribed((data) => {
+          console.log("🔌 Subscribed to channel:", data);
+        });
 
-      const unsubscribePostUpdated = onPostUpdated((post) => {
-        console.log("📢 Real-time: Post updated", post);
-        updatePostInList(post);
-      });
+        const unsubscribeNewPost = onNewPost((post) => {
+          console.log("📢 Real-time: New post received", post);
+          if (post.user_id !== user?.id) {
+            addNewPost(post);
+          }
+        });
 
-      const unsubscribePostDeleted = onPostDeleted(({ id }) => {
-        console.log("📢 Real-time: Post deleted", id);
-        removePost(id);
-      });
+        const unsubscribePostUpdated = onPostUpdated((post) => {
+          console.log("📢 Real-time: Post updated", post);
+          updatePostInList(post);
+        });
 
-      // Comment events
-      const unsubscribeNewComment = onNewComment((comment) => {
-        console.log("📢 Real-time: New comment on post", comment);
-        updateCommentCount(comment.post_id);
-      });
+        const unsubscribePostDeleted = onPostDeleted(({ id }) => {
+          console.log("📢 Real-time: Post deleted", id);
+          removePost(id);
+        });
 
-      // Like events
-      const unsubscribeLikeUpdated = onLikeUpdated(
-        ({ postId, likeCount, userId, action }) => {
-          console.log("❤️ Real-time: Like updated", {
-            postId,
-            likeCount,
-            action,
-          });
-          updateLikeCount(postId, likeCount, action === "liked");
-        },
-      );
+        const unsubscribeNewComment = onNewComment((comment) => {
+          console.log("📢 Real-time: New comment on post", comment.post_id);
+          updateCommentCount(comment.post_id);
+        });
 
-      const unsubscribeFeedLikeUpdated = onFeedLikeUpdated(
-        ({ postId, likeCount, userId, action }) => {
-          console.log("❤️ Feed real-time: Like updated", {
-            postId,
-            likeCount,
-            action,
-          });
-          updateLikeCount(postId, likeCount, action === "liked");
-        },
-      );
+        const unsubscribeLikeUpdated = onLikeUpdated(
+          ({ postId, likeCount, userId, action }) => {
+            console.log("❤️ Real-time: Like updated", {
+              postId,
+              likeCount,
+              action,
+            });
+            updateLikeCount(postId, likeCount, action === "liked");
+          },
+        );
+
+        return () => {
+          unsubscribeAuthenticated();
+          unsubscribeSubscribed();
+          unsubscribeNewPost();
+          unsubscribePostUpdated();
+          unsubscribePostDeleted();
+          unsubscribeNewComment();
+          unsubscribeLikeUpdated();
+          disconnectSocket();
+        };
+      };
+
+      const cleanupPromise = initSocket();
 
       return () => {
-        unsubscribeAuth();
-        unsubscribeSubscribed();
-        unsubscribeNewPost();
-        unsubscribePostUpdated();
-        unsubscribePostDeleted();
-        unsubscribeNewComment();
-        unsubscribeLikeUpdated();
-        unsubscribeFeedLikeUpdated();
-        disconnectSocket();
+        cleanupPromise.then((cleanup) => cleanup?.());
       };
     } else {
       if (getSocket()?.connected) {
         disconnectSocket();
       }
     }
-  }, [
-    isAuthenticated,
-    user?.id,
-    addNewPost,
-    updatePostInList,
-    removePost,
-    updateLikeCount,
-    updateCommentCount,
-  ]);
+  }, [isAuthenticated, user?.id]);
 }

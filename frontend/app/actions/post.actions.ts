@@ -45,69 +45,46 @@ interface UpdatePostResponse {
   error?: string;
 }
 
-export async function createPost(
-  data: CreatePostInput,
-): Promise<CreatePostResponse> {
+export async function createPost(data: { title: string; content: string }) {
+  console.log("🔧 SERVER ACTION: createPost called");
+  console.log("🔧 Data:", data);
+  console.log("🔧 NODE_ENV:", process.env.NODE_ENV);
+  console.log("🔧 NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
+
   try {
-    // Validate input
-    if (!data.title?.trim()) {
-      return { success: false, error: "Title is required" };
-    }
-
-    if (!data.content?.trim()) {
-      return { success: false, error: "Content is required" };
-    }
-
-    // Get cookies for authentication
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
+    console.log("🔧 Cookies present:", !!cookieString);
 
-    // Get API URL from environment
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
-    const url = `${baseUrl}/posts`;
+    console.log("🔧 Using API URL:", baseUrl);
 
-    // Make request to backend
+    const url = `${baseUrl}/posts`;
+    console.log("🔧 Full URL:", url);
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Cookie: cookieString,
       },
-      body: JSON.stringify({
-        title: data.title.trim(),
-        content: data.content.trim(),
-      }),
+      body: JSON.stringify(data),
     });
 
+    console.log("🔧 Response status:", response.status);
     const responseData = await response.json();
+    console.log("🔧 Response data:", responseData);
 
     if (!response.ok) {
-      return {
-        success: false,
-        error: responseData.error || "Failed to create post",
-      };
+      return { success: false, error: responseData.error };
     }
 
-    // ============================================
-    // REVALIDATION STRATEGY
-    // Revalidate affected paths to show new content
-    // ============================================
-    revalidatePath("/"); // Homepage feed
-    revalidatePath(`/profile/${responseData.username}`); // User's profile
-    revalidatePath("/posts"); // Posts list (if exists)
-
-    return {
-      success: true,
-      post: responseData,
-    };
+    revalidatePath("/");
+    return { success: true, post: responseData };
   } catch (error) {
-    console.error("Create post action error:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
+    console.error("🔧 Server action error:", error);
+    return { success: false, error: String(error) };
   }
 }
 
@@ -129,7 +106,7 @@ export async function updatePost(
     const cookieString = cookieStore.toString();
 
     // Get API URL from environment
-    const baseUrl = 
+    const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${data.id}`;
 
@@ -189,7 +166,7 @@ export async function deletePost(
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
 
-    const baseUrl = 
+    const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${postId}`;
 

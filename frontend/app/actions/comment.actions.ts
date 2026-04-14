@@ -1,37 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { authenticatedFetchJSON } from "@/lib/server/authenticatedFetch";
 import type { Comment } from "@/types/Post";
-
-// ============================================
-// TYPES
-// ============================================
 
 interface CommentResponse {
   success: boolean;
-  comment?: {
-    success: boolean;
-    comment: Comment;
-    commentCount: number;
-  };
-  error?: string;
-}
-
-interface DeleteCommentResponse {
-  success: boolean;
-  error?: string;
-}
-
-interface UpdateCommentResponse {
-  success: boolean;
   comment?: Comment;
+  commentCount?: number;
   error?: string;
 }
-
-// ============================================
-// SERVER ACTION: Add Comment
-// ============================================
 
 export async function addComment({
   postId,
@@ -41,27 +19,18 @@ export async function addComment({
   content: string;
 }): Promise<CommentResponse> {
   try {
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-    const baseUrl =
-      "http://backend:5000/api";
-    const url = `${baseUrl}/posts/${postId}/comments`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieString,
+    const result = await authenticatedFetchJSON<Comment>(
+      `/posts/${postId}/comments`,
+      {
+        method: "POST",
+        body: JSON.stringify({ content }),
       },
-      body: JSON.stringify({ content }),
-    });
+    );
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!result.success || !result.data) {
       return {
         success: false,
-        error: data.error || "Failed to add comment",
+        error: result.error || "Failed to add comment",
       };
     }
 
@@ -69,7 +38,7 @@ export async function addComment({
 
     return {
       success: true,
-      comment: data,
+      comment: result.data,
     };
   } catch (error) {
     console.error("Add comment action error:", error);
@@ -81,33 +50,22 @@ export async function addComment({
   }
 }
 
-// ============================================
-// SERVER ACTION: Delete Comment
-// ============================================
-
 export async function deleteComment(
   commentId: string,
   postId: string,
-): Promise<DeleteCommentResponse> {
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-    const baseUrl =
-      "http://backend:5000/api";
-    const url = `${baseUrl}/posts/comments/${commentId}`;
-
-    const response = await fetch(url, {
-      method: "DELETE",
-      headers: {
-        Cookie: cookieString,
+    const result = await authenticatedFetchJSON(
+      `/posts/comments/${commentId}`,
+      {
+        method: "DELETE",
       },
-    });
+    );
 
-    if (!response.ok) {
-      const errorData = await response.json();
+    if (!result.success) {
       return {
         success: false,
-        error: errorData.error || "Failed to delete comment",
+        error: result.error || "Failed to delete comment",
       };
     }
 
@@ -116,17 +74,9 @@ export async function deleteComment(
     return { success: true };
   } catch (error) {
     console.error("Delete comment action error:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
+    return { success: false, error: "An unexpected error occurred" };
   }
 }
-
-// ============================================
-// SERVER ACTION: Update Comment
-// ============================================
 
 export async function updateComment({
   commentId,
@@ -136,29 +86,20 @@ export async function updateComment({
   commentId: string;
   postId: string;
   content: string;
-}): Promise<UpdateCommentResponse> {
+}): Promise<CommentResponse> {
   try {
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-    const baseUrl =
-      "http://backend:5000/api";
-    const url = `${baseUrl}/posts/comments/${commentId}`;
-
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookieString,
+    const result = await authenticatedFetchJSON<Comment>(
+      `/posts/comments/${commentId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ content }),
       },
-      body: JSON.stringify({ content }),
-    });
+    );
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!result.success || !result.data) {
       return {
         success: false,
-        error: data.error || "Failed to update comment",
+        error: result.error || "Failed to update comment",
       };
     }
 
@@ -166,7 +107,7 @@ export async function updateComment({
 
     return {
       success: true,
-      comment: data,
+      comment: result.data,
     };
   } catch (error) {
     console.error("Update comment action error:", error);

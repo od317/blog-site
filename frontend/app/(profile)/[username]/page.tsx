@@ -20,7 +20,7 @@ import { ProfilePageProps, UserProfile } from "@/types/Profile";
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
     const baseUrl = 
-      "http://backend:5000/api";
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/profile/${username}`;
 
     // Next.js automatically caches this fetch

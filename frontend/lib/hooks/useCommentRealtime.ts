@@ -19,10 +19,24 @@ export function useCommentRealtime({
   onCommentUpdated,
   currentUserId,
 }: UseCommentRealtimeProps) {
+  // Use refs to store callbacks so they don't cause re-renders
+  const onCommentAddedRef = useRef(onCommentAdded);
+  const onCommentDeletedRef = useRef(onCommentDeleted);
+  const onCommentUpdatedRef = useRef(onCommentUpdated);
+  const currentUserIdRef = useRef(currentUserId);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onCommentAddedRef.current = onCommentAdded;
+    onCommentDeletedRef.current = onCommentDeleted;
+    onCommentUpdatedRef.current = onCommentUpdated;
+    currentUserIdRef.current = currentUserId;
+  });
+
   // Track temp comments to real IDs
   const tempToRealIdMap = useRef<Map<string, string>>(new Map());
 
-  // Join post room for real-time comments
+  // Join post room - runs only when postId changes
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -34,18 +48,17 @@ export function useCommentRealtime({
     };
   }, [postId]);
 
-  // Listen for real-time comment events
+  // Listen for real-time comment events - runs only once
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
     const handleNewComment = (data: { comment: Comment; postId: string }) => {
       if (data.postId === postId) {
-        // Skip if this is the current user's own comment (already added via optimistic update)
-        if (currentUserId === data.comment.user_id) {
+        if (currentUserIdRef.current === data.comment.user_id) {
           return;
         }
-        onCommentAdded(data.comment);
+        onCommentAddedRef.current(data.comment);
       }
     };
 
@@ -54,16 +67,21 @@ export function useCommentRealtime({
       postId: string;
     }) => {
       if (data.postId === postId) {
-        onCommentDeleted(data.commentId);
+        onCommentDeletedRef.current(data.commentId);
       }
     };
 
     const handleCommentUpdated = (data: {
       comment: Comment;
       postId: string;
+      commentCount: number;
     }) => {
       if (data.postId === postId) {
-        onCommentUpdated(data.comment);
+        console.log(
+          "🔄 Real-time: Comment updated received in hook",
+          data.comment,
+        );
+        onCommentUpdatedRef.current(data.comment);
       }
     };
 
@@ -76,13 +94,7 @@ export function useCommentRealtime({
       socket.off("comment-deleted", handleCommentDeleted);
       socket.off("comment-updated", handleCommentUpdated);
     };
-  }, [
-    postId,
-    onCommentAdded,
-    onCommentDeleted,
-    onCommentUpdated,
-    currentUserId,
-  ]);
+  }, [postId]);
 
   return { tempToRealIdMap };
 }

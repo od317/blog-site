@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { getSocket } from "@/lib/socket/client";
 import { CommentForm } from "./CommentForm";
@@ -21,7 +21,6 @@ interface CommentSectionProps {
   onCommentUpdated: (comment: Comment) => void;
 }
 
-// Generate temporary ID for optimistic updates
 const generateTempId = () =>
   `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
@@ -36,12 +35,35 @@ export function CommentSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Set up real-time listeners
-  const { tempToRealIdMap } = useCommentRealtime({
+  // Wrap callbacks to stabilize them
+  const handleCommentAdded = useCallback(
+    (comment: Comment) => {
+      onCommentAdded(comment);
+    },
+    [onCommentAdded],
+  );
+
+  const handleCommentDeleted = useCallback(
+    (commentId: string) => {
+      onCommentDeleted(commentId);
+    },
+    [onCommentDeleted],
+  );
+
+  const handleCommentUpdated = useCallback(
+    (comment: Comment) => {
+      console.log("📢 handleCommentUpdated called with:", comment);
+      onCommentUpdated(comment);
+    },
+    [onCommentUpdated],
+  );
+
+  // Set up real-time listeners with stable callbacks
+  useCommentRealtime({
     postId,
-    onCommentAdded,
-    onCommentDeleted,
-    onCommentUpdated,
+    onCommentAdded: handleCommentAdded,
+    onCommentDeleted: handleCommentDeleted,
+    onCommentUpdated: handleCommentUpdated,
     currentUserId: user?.id,
   });
 

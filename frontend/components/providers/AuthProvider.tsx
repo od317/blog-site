@@ -31,17 +31,6 @@ export function AuthProvider({
       return;
     }
 
-    // Quick check for cookies
-    const hasAnyToken =
-      document.cookie.includes("accessToken") ||
-      document.cookie.includes("refreshToken");
-
-    if (!hasAnyToken) {
-      console.log("🔍 No tokens found, skipping auth validation");
-      hasCheckedRef.current = true;
-      return;
-    }
-
     hasCheckedRef.current = true;
 
     // Run check in background without blocking

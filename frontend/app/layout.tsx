@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "A real-time blog platform",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;

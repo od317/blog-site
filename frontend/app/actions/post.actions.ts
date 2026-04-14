@@ -1,12 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  getAccessToken,
-  getRefreshToken,
-  setAuthTokens,
-  clearAuthTokens,
-} from "./auth.actions";
+import { authenticatedFetchJSON } from "@/lib/server/authenticatedFetch";
 
 interface CreatePostInput {
   title: string;
@@ -43,57 +38,6 @@ interface UpdatePostResponse {
   error?: string;
 }
 
-const API_URL = "http://backend:5000/api";
-
-// Helper for authenticated requests
-async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
-  const accessToken = await getAccessToken();
-
-  if (!accessToken) {
-    throw new Error("Not authenticated");
-  }
-
-  const makeRequest = async (token: string) => {
-    return fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...options.headers,
-      },
-    });
-  };
-
-  let response = await makeRequest(accessToken);
-
-  // If token expired, try to refresh
-  if (response.status === 401) {
-    const refreshToken = await getRefreshToken();
-
-    if (refreshToken) {
-      const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      if (refreshResponse.ok) {
-        const { accessToken: newAccessToken } = await refreshResponse.json();
-        await setAuthTokens(newAccessToken, refreshToken);
-        response = await makeRequest(newAccessToken);
-      } else {
-        await clearAuthTokens();
-        throw new Error("Session expired. Please login again.");
-      }
-    } else {
-      await clearAuthTokens();
-      throw new Error("Session expired. Please login again.");
-    }
-  }
-
-  return response;
-}
-
 export async function createPost(
   data: CreatePostInput,
 ): Promise<CreatePostResponse> {
@@ -107,31 +51,32 @@ export async function createPost(
       return { success: false, error: "Content is required" };
     }
 
-    const response = await authenticatedFetch("/posts", {
-      method: "POST",
-      body: JSON.stringify({
-        title: data.title.trim(),
-        content: data.content.trim(),
-      }),
-    });
+    const result = await authenticatedFetchJSON<CreatePostResponse["post"]>(
+      "/posts",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          title: data.title.trim(),
+          content: data.content.trim(),
+        }),
+      },
+    );
 
-    const responseData = await response.json();
-
-    if (!response.ok) {
+    if (!result.success || !result.data) {
       return {
         success: false,
-        error: responseData.error || "Failed to create post",
+        error: result.error || "Failed to create post",
       };
     }
 
     // Revalidate affected paths
     revalidatePath("/");
-    revalidatePath(`/profile/${responseData.username}`);
+    revalidatePath(`/profile/${result.data.username}`);
     revalidatePath("/posts");
 
     return {
       success: true,
-      post: responseData,
+      post: result.data,
     };
   } catch (error) {
     console.error("Create post action error:", error);
@@ -155,20 +100,21 @@ export async function updatePost(
       return { success: false, error: "Content is required" };
     }
 
-    const response = await authenticatedFetch(`/posts/${data.id}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        title: data.title.trim(),
-        content: data.content.trim(),
-      }),
-    });
+    const result = await authenticatedFetchJSON<UpdatePostResponse["post"]>(
+      `/posts/${data.id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          title: data.title.trim(),
+          content: data.content.trim(),
+        }),
+      },
+    );
 
-    const responseData = await response.json();
-
-    if (!response.ok) {
+    if (!result.success || !result.data) {
       return {
         success: false,
-        error: responseData.error || "Failed to update post",
+        error: result.error || "Failed to update post",
       };
     }
 
@@ -179,7 +125,7 @@ export async function updatePost(
 
     return {
       success: true,
-      post: responseData,
+      post: result.data,
     };
   } catch (error) {
     console.error("Update post action error:", error);
@@ -195,15 +141,14 @@ export async function deletePost(
   postId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await authenticatedFetch(`/posts/${postId}`, {
+    const result = await authenticatedFetchJSON(`/posts/${postId}`, {
       method: "DELETE",
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
+    if (!result.success) {
       return {
         success: false,
-        error: errorData.error || "Failed to delete post",
+        error: result.error || "Failed to delete post",
       };
     }
 

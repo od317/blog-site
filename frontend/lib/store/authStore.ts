@@ -23,6 +23,9 @@ interface AuthStore extends AuthState {
   validateAndRefresh: () => Promise<boolean>;
 }
 
+// Flag to prevent multiple simultaneous auth checks
+let isCheckingAuth = false;
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
@@ -123,7 +126,6 @@ export const useAuthStore = create<AuthStore>()(
 
           if (refreshResponse.success && refreshResponse.accessToken) {
             // Update the token in HttpOnly cookie
-            // Note: refresh token stays the same
             await setAuthTokens(
               refreshResponse.accessToken,
               refreshResponse.refreshToken || "",
@@ -149,7 +151,14 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       checkAuth: async (): Promise<boolean> => {
+        // Prevent multiple simultaneous checks
+        if (isCheckingAuth) {
+          console.log("⚠️ Auth check already in progress, skipping...");
+          return false;
+        }
+
         set({ isLoading: true });
+        isCheckingAuth = true;
 
         try {
           const isValid = await get().validateAndRefresh();
@@ -174,6 +183,8 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
           });
           return false;
+        } finally {
+          isCheckingAuth = false;
         }
       },
 

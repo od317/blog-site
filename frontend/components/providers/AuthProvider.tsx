@@ -48,7 +48,7 @@ export function AuthProvider({
     checkAuth().catch(() => {
       // Silently fail - user is not authenticated
     });
-  }, [checkAuth, skipAuthCheck, isPublicRoute]);
+  }, []); // Empty dependency array - runs only once on mount!
 
   return <>{children}</>;
 }

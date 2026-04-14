@@ -43,7 +43,7 @@ interface UpdatePostResponse {
   error?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+const API_URL = "http://backend:5000/api";
 
 // Helper for authenticated requests
 async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {

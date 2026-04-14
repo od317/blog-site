@@ -6,7 +6,7 @@ import { Post } from "@/types/Post";
 async function getPost(id: string): Promise<Post | null> {
   try {
     // Build URL
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    const baseUrl = "http://backend:5000/api";
     const url = `${baseUrl}/posts/${id}`;
 
     // Fetch from your backend API

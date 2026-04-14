@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { getSocket } from "@/lib/socket/client";
 import { CommentForm } from "./CommentForm";
@@ -35,6 +35,9 @@ export function CommentSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // ✅ Add this ref to track temp to real ID mapping
+  const tempToRealIdMap = useRef<Map<string, string>>(new Map());
+
   // Wrap callbacks to stabilize them
   const handleCommentAdded = useCallback(
     (comment: Comment) => {
@@ -67,7 +70,7 @@ export function CommentSection({
     currentUserId: user?.id,
   });
 
-  // ========== OPTIMISTIC ADD COMMENT (Recommended) ==========
+  // ========== OPTIMISTIC ADD COMMENT ==========
   const handleAddComment = async (content: string) => {
     if (!isAuthenticated) {
       window.location.href = `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`;
@@ -98,14 +101,15 @@ export function CommentSection({
         content,
       });
 
-      if (result.success && result.comment?.comment) {
-        // Extract the real comment from the nested response
-        const realComment = result.comment.comment;
+      // ✅ Fix: Check the response structure correctly
+      if (result.success && result.comment) {
+        // The response has comment property directly
+        const realComment = result.comment as Comment;
 
         // Store mapping from temp ID to real ID
         tempToRealIdMap.current.set(tempId, realComment.id);
 
-        // ✅ RECOMMENDED: Remove temp, add real
+        // Remove temp, add real
         onCommentDeleted(tempId);
         onCommentAdded(realComment);
 
@@ -184,9 +188,10 @@ export function CommentSection({
         content: newContent,
       });
 
+      // ✅ Fix: Check response structure correctly
       if (result.success && result.comment) {
         // Update with server response
-        onCommentUpdated(result.comment);
+        onCommentUpdated(result.comment as Comment);
 
         const socket = getSocket();
         if (socket?.connected) {

@@ -4,7 +4,7 @@ const Comment = require("../models/Comment");
 const Like = require("../models/Like");
 const { calculateReadingTime } = require("../utils/readingTime");
 
-// Get all posts (for homepage feed)
+// Get all posts (for homepage feed) - PUBLIC
 exports.getAllPosts = async (req, res) => {
   try {
     const { limit = 20, offset = 0 } = req.query;
@@ -15,7 +15,6 @@ exports.getAllPosts = async (req, res) => {
       req.userId || null,
     );
 
-    // Add reading time to each post
     const postsWithReadingTime = posts.map((post) => ({
       ...post,
       readingTime: calculateReadingTime(post.content || ""),
@@ -28,7 +27,7 @@ exports.getAllPosts = async (req, res) => {
   }
 };
 
-// Get single post (for full post page)
+// Get single post (for full post page) - PUBLIC
 exports.getPost = async (req, res) => {
   try {
     const { id } = req.params;
@@ -40,7 +39,6 @@ exports.getPost = async (req, res) => {
 
     const comments = await Comment.findByPost(id);
 
-    // Add reading time
     const postWithReadingTime = {
       ...post,
       readingTime: calculateReadingTime(post.content || ""),
@@ -56,8 +54,16 @@ exports.getPost = async (req, res) => {
   }
 };
 
-// Create post
+// Create post - REQUIRES AUTH
 exports.createPost = async (req, res) => {
+  // Check authentication first
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to create a post",
+    });
+  }
+
   try {
     console.log("Create post request body:", req.body);
     console.log("User ID:", req.userId);
@@ -74,19 +80,14 @@ exports.createPost = async (req, res) => {
       user_id: req.userId,
     });
 
-    // Get the complete post with user info
     const fullPost = await Post.findById(post.id, req.userId);
 
-    // Add reading time
     const postWithReadingTime = {
       ...fullPost,
       readingTime: calculateReadingTime(fullPost.content || ""),
     };
 
-    // Get the io instance
     const io = req.app.get("io");
-
-    // Emit to ALL connected clients (for feed)
     io.emit("new-post", postWithReadingTime);
     io.emit("feed:new-post", postWithReadingTime);
 
@@ -99,8 +100,15 @@ exports.createPost = async (req, res) => {
   }
 };
 
-// Update post
+// Update post - REQUIRES AUTH
 exports.updatePost = async (req, res) => {
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to update a post",
+    });
+  }
+
   try {
     const { id } = req.params;
     const { title, content } = req.body;
@@ -117,7 +125,6 @@ exports.updatePost = async (req, res) => {
       readingTime: calculateReadingTime(fullPost.content || ""),
     };
 
-    // Emit update to all clients
     const io = req.app.get("io");
     io.emit("post-updated", postWithReadingTime);
     io.to(`post-${id}`).emit("post-updated", postWithReadingTime);
@@ -129,8 +136,15 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-// Delete post
+// Delete post - REQUIRES AUTH
 exports.deletePost = async (req, res) => {
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to delete a post",
+    });
+  }
+
   try {
     const { id } = req.params;
     const post = await Post.delete(id, req.userId);
@@ -139,7 +153,6 @@ exports.deletePost = async (req, res) => {
       return res.status(404).json({ error: "Post not found or unauthorized" });
     }
 
-    // Emit deletion to all clients
     const io = req.app.get("io");
     io.emit("post-deleted", { id });
     io.to(`post-${id}`).emit("post-deleted", { id });
@@ -151,7 +164,7 @@ exports.deletePost = async (req, res) => {
   }
 };
 
-// Get user posts
+// Get user posts - PUBLIC
 exports.getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -164,7 +177,6 @@ exports.getUserPosts = async (req, res) => {
       req.userId || null,
     );
 
-    // Add reading time to each post
     const postsWithReadingTime = posts.map((post) => ({
       ...post,
       readingTime: calculateReadingTime(post.content || ""),
@@ -180,16 +192,7 @@ exports.getUserPosts = async (req, res) => {
 exports.getActiveReaders = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // This would need access to the activeReaders Map
-    // For now, we'll rely on WebSocket events only
-    // The active readers count is managed in memory
-
-    res.json({
-      postId: id,
-      // Note: This is a simplified version
-      // In production, you might want to store this in Redis
-    });
+    res.json({ postId: id });
   } catch (error) {
     console.error("Get active readers error:", error);
     res.status(500).json({ error: "Failed to get active readers" });

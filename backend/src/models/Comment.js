@@ -52,6 +52,18 @@ class Comment {
     return result.rows;
   }
 
+  static async update(id, userId, content) {
+    const query = `
+      UPDATE comments 
+      SET content = $1 
+      WHERE id = $2 AND user_id = $3
+      RETURNING id, content, post_id, user_id, created_at
+    `;
+    const values = [content, id, userId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  }
+
   // Delete comment
   static async delete(id, userId) {
     const query =

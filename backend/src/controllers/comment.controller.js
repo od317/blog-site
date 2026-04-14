@@ -1,53 +1,62 @@
 const Comment = require("../models/Comment");
 const Post = require("../models/Post");
 
-// Add comment to post
+// Get comments for a post - PUBLIC
+exports.getPostComments = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const comments = await Comment.findByPost(
+      postId,
+      parseInt(limit),
+      parseInt(offset),
+    );
+    const commentCount = await Comment.getCount(postId);
+
+    res.json({ comments, commentCount });
+  } catch (error) {
+    console.error("Get comments error:", error);
+    res.status(500).json({ error: "Failed to fetch comments" });
+  }
+};
+
+// Add comment - REQUIRES AUTH
 exports.addComment = async (req, res) => {
+  // Check authentication first
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to add a comment",
+    });
+  }
+
   try {
     const { postId } = req.params;
     const { content } = req.body;
-    const userId = req.userId;
-
-    console.log("💬 Adding comment to post:", postId);
-    console.log("💬 User ID:", userId);
-    console.log("💬 Content:", content);
-
-    // ✅ Check if user is authenticated
-    if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
-    }
 
     if (!content || content.trim().length === 0) {
       return res.status(400).json({ error: "Comment content is required" });
     }
 
-    // Check if post exists
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
 
-    // Create comment with user_id
     const comment = await Comment.create({
       content: content.trim(),
       post_id: postId,
-      user_id: userId, // ✅ Make sure this is not null
+      user_id: req.userId,
     });
 
-    // Get full comment with user info
     const fullComment = await Comment.findById(comment.id);
-
-    // Get updated comment count
     const commentCount = await Comment.getCount(postId);
 
-    console.log("💬 Comment added:", fullComment);
-
-    // Get io instance and emit real-time event
     const io = req.app.get("io");
-
     io.to(`post-${postId}`).emit("new-comment", {
-      comment: fullComment,
       postId,
+      comment: fullComment,
       commentCount,
     });
 
@@ -62,13 +71,19 @@ exports.addComment = async (req, res) => {
   }
 };
 
-// Delete comment
+// Delete comment - REQUIRES AUTH
 exports.deleteComment = async (req, res) => {
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to delete a comment",
+    });
+  }
+
   try {
     const { id } = req.params;
     const userId = req.userId;
 
-    // Get comment to find post_id
     const comment = await Comment.findById(id);
     if (!comment) {
       return res.status(404).json({ error: "Comment not found" });
@@ -76,7 +91,6 @@ exports.deleteComment = async (req, res) => {
 
     const postId = comment.post_id;
 
-    // Delete comment
     const deleted = await Comment.delete(id, userId);
 
     if (!deleted) {
@@ -85,10 +99,8 @@ exports.deleteComment = async (req, res) => {
         .json({ error: "Comment not found or unauthorized" });
     }
 
-    // Get updated comment count
     const commentCount = await Comment.getCount(postId);
 
-    // Emit real-time update
     const io = req.app.get("io");
     io.to(`post-${postId}`).emit("comment-deleted", {
       commentId: id,
@@ -96,46 +108,59 @@ exports.deleteComment = async (req, res) => {
       commentCount,
     });
 
-    io.emit("feed-comment-updated", {
-      postId,
-      commentCount,
-    });
-
-    res.json({
-      success: true,
-      message: "Comment deleted",
-      commentCount,
-    });
+    res.json({ success: true, commentCount });
   } catch (error) {
     console.error("Delete comment error:", error);
     res.status(500).json({ error: "Failed to delete comment" });
   }
 };
 
-// Get comments for a post
-exports.getPostComments = async (req, res) => {
-  try {
-    const { postId } = req.params;
-    const { limit = 50, offset = 0 } = req.query;
-
-    const comments = await Comment.findByPost(
-      postId,
-      parseInt(limit),
-      parseInt(offset),
-    );
-    const total = await Comment.getCount(postId);
-
-    res.json({
-      comments,
-      pagination: {
-        total,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        hasMore: total > parseInt(offset) + comments.length,
-      },
+// Update comment - REQUIRES AUTH
+exports.updateComment = async (req, res) => {
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to update a comment",
     });
+  }
+
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    const userId = req.userId;
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({ error: "Comment content is required" });
+    }
+
+    const updated = await Comment.update(id, userId, content.trim());
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ error: "Comment not found or unauthorized" });
+    }
+
+    const fullComment = await Comment.findById(id);
+    const commentCount = await Comment.getCount(fullComment.post_id);
+
+    const io = req.app.get("io");
+    io.to(`post-${fullComment.post_id}`).emit("comment-updated", {
+      comment: fullComment,
+      postId: fullComment.post_id,
+      commentCount,
+    });
+    console.log(
+      `📢 Comment updated event emitted to post-${fullComment.post_id}`,
+    );
+    console.log("Event data:", {
+      comment: fullComment,
+      postId: fullComment.post_id,
+      commentCount,
+    });
+    res.json({ success: true, comment: fullComment });
   } catch (error) {
-    console.error("Get comments error:", error);
-    res.status(500).json({ error: "Failed to fetch comments" });
+    console.error("Update comment error:", error);
+    res.status(500).json({ error: "Failed to update comment" });
   }
 };

@@ -9,21 +9,25 @@ const likeController = require("../controllers/like.controller");
 // This will set req.userId for ALL routes, even public ones
 router.use(authMiddleware);
 
-// Now all routes will have access to req.userId
+// ========== POST ROUTES ==========
+// Public read routes
 router.get("/", postController.getAllPosts);
 router.get("/user/:userId", postController.getUserPosts);
 router.get("/:id", postController.getPost);
+router.get("/:id/active-readers", postController.getActiveReaders);
 
-// Post CRUD (these require auth, handled by middleware)
+// Protected write routes (auth required)
 router.post("/", postController.createPost);
 router.put("/:id", postController.updatePost);
 router.delete("/:id", postController.deletePost);
 
-// Comments
-router.post("/:postId/comments", commentController.addComment);
-router.delete("/comments/:id", commentController.deleteComment);
+// ========== COMMENT ROUTES ==========
+// Public read route
 router.get("/:postId/comments", commentController.getPostComments);
 
-router.get("/:id/active-readers", postController.getActiveReaders);
+// Protected write routes (auth required)
+router.post("/:postId/comments", commentController.addComment);
+router.put("/comments/:id", commentController.updateComment); // 
+router.delete("/comments/:id", commentController.deleteComment);
 
 module.exports = router;

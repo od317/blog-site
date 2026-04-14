@@ -1,15 +1,18 @@
 const Like = require("../models/Like");
 const Post = require("../models/Post");
 
-// Like a post
 exports.likePost = async (req, res) => {
+  // Check authentication first
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to like a post",
+    });
+  }
+
   try {
     const { postId } = req.params;
     const userId = req.userId;
-
-    console.log("🔥 LIKE POST - Start");
-    console.log("🔥 Post ID:", postId);
-    console.log("🔥 User ID:", userId);
 
     const post = await Post.findById(postId);
     if (!post) {
@@ -24,17 +27,16 @@ exports.likePost = async (req, res) => {
     await Like.create(postId, userId);
     const likeCount = await Like.getCount(postId);
 
-    console.log("🔥 Like added! New count:", likeCount);
-
     const io = req.app.get("io");
-    console.log("🔥 IO instance exists:", !!io);
 
-    // Get all connected sockets for debugging
-    const sockets = await io.fetchSockets();
-    console.log("🔥 Connected sockets count:", sockets.length);
+    io.to(`post-${postId}`).emit("like-updated", {
+      postId,
+      likeCount,
+      userId,
+      action: "liked",
+    });
 
-    // Emit to ALL connected sockets for testing
-    io.emit("like-updated", {
+    io.to("global-feed").emit("feed-like-updated", {
       postId,
       likeCount,
       userId,
@@ -44,7 +46,6 @@ exports.likePost = async (req, res) => {
     console.log(
       `📢 Like added: post ${postId} by user ${userId}, total: ${likeCount}`,
     );
-    console.log("🔥 Event emitted to all clients");
 
     res.json({
       success: true,
@@ -57,38 +58,36 @@ exports.likePost = async (req, res) => {
   }
 };
 
-// Unlike a post
+// Unlike a post - REQUIRES AUTH
 exports.unlikePost = async (req, res) => {
-  console.log("🔥 UNLIKE API CALLED");
-  console.log("🔥 Post ID:", req.params.postId);
-  console.log("🔥 User ID:", req.userId);
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Authentication required",
+      message: "You must be logged in to unlike a post",
+    });
+  }
 
   try {
     const { postId } = req.params;
     const userId = req.userId;
 
-    console.log("🔥 Checking if liked...");
-
-    // Check if liked
-    const hasLiked = await Like.hasLiked(postId, userId);
-    if (!hasLiked) {
-      console.log("🔥 Not liked yet!");
+    const removed = await Like.delete(postId, userId);
+    if (!removed) {
       return res.status(400).json({ error: "Post not liked yet" });
     }
 
-    console.log("🔥 Removing like...");
-    // Remove like
-    const removed = await Like.delete(postId, userId);
     const likeCount = await Like.getCount(postId);
 
-    console.log("🔥 Like removed! New count:", likeCount);
-
-    // Get the io instance
     const io = req.app.get("io");
-    console.log("🔥 IO instance:", io ? "exists" : "missing");
 
-    // Emit to post room
-    io.emit("like-updated", {
+    io.to(`post-${postId}`).emit("like-updated", {
+      postId,
+      likeCount,
+      userId,
+      action: "unliked",
+    });
+
+    io.to("global-feed").emit("feed-like-updated", {
       postId,
       likeCount,
       userId,
@@ -103,10 +102,9 @@ exports.unlikePost = async (req, res) => {
       success: true,
       liked: false,
       likeCount,
-      message: "Post unliked",
     });
   } catch (error) {
-    console.error("🔥 Unlike post error:", error);
+    console.error("Unlike post error:", error);
     res.status(500).json({ error: "Failed to unlike post" });
   }
 };

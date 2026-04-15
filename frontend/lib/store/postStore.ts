@@ -172,7 +172,14 @@ export const usePostStore = create<PostStore>((set, get) => ({
     set((state) => ({
       posts: state.posts.map((post) =>
         post.id === postId
-          ? { ...post, like_count: likeCount, user_has_liked: userHasLiked }
+          ? {
+              ...post,
+              like_count: likeCount,
+              // Only update user_has_liked if explicitly provided (for current user's own action)
+              ...(userHasLiked !== undefined && {
+                user_has_liked: userHasLiked,
+              }),
+            }
           : post,
       ),
     }));

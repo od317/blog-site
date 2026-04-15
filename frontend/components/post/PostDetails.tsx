@@ -18,6 +18,7 @@ interface PostDetailsProps {
 }
 
 export function PostDetails({ post: initialPost }: PostDetailsProps) {
+  console.log(initialPost);
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const { updateLikeCount, updateCommentCount, updatePostInList } =
@@ -30,7 +31,32 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
 
   const isAuthor = isAuthenticated && post.user_id === user?.id;
 
-  // Listen for real-time post updates
+  // ========== JOIN POST ROOM FOR REAL-TIME UPDATES ==========
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    // Join the post room when component mounts
+    if (socket.connected) {
+      socket.emit("join-post", post.id);
+      console.log(`📖 Joined post room: ${post.id}`);
+    } else {
+      socket.once("connect", () => {
+        socket.emit("join-post", post.id);
+        console.log(`📖 Joined post room after connect: ${post.id}`);
+      });
+    }
+
+    // Leave the post room when component unmounts
+    return () => {
+      if (socket.connected) {
+        socket.emit("leave-post", post.id);
+        console.log(`📖 Left post room: ${post.id}`);
+      }
+    };
+  }, [post.id]);
+
+  // Listen for real-time post updates only (not like updates)
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -48,6 +74,8 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
       socket.off("post-updated", handlePostUpdate);
     };
   }, [post.id, updatePostInList]);
+
+  // REMOVED: handleLikeUpdate listener - useRealtime handles it
 
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this post?")) return;

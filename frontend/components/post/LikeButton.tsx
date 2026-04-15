@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useLikeActions } from "@/lib/hooks/Likes/useLikeActions";
+import { useLikeRealtime } from "@/lib/hooks/Likes/useLikeRealtime";
+import { useLikeState } from "@/lib/hooks/Likes/useLikeState";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { usePostStore } from "@/lib/store/postStore";
-import { api } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
 
 interface LikeButtonProps {
   postId: string;
-  initialLikeCount: number;
+  initialLikeCount: number | string; // Allow both number and string
   initialHasLiked: boolean;
 }
 
@@ -17,14 +17,51 @@ export function LikeButton({
   initialLikeCount,
   initialHasLiked,
 }: LikeButtonProps) {
-  const [isLiking, setIsLiking] = useState(false);
-  const [likeCount, setLikeCount] = useState(initialLikeCount);
-  const [hasLiked, setHasLiked] = useState(initialHasLiked);
   const { isAuthenticated } = useAuth();
-  const { updateLikeCount } = usePostStore();
   const router = useRouter();
 
-  const handleLike = async () => {
+  // Convert to number if it's a string
+  const normalizedLikeCount =
+    typeof initialLikeCount === "string"
+      ? parseInt(initialLikeCount, 10)
+      : initialLikeCount;
+
+  const {
+    likeCount,
+    hasLiked,
+    isLiking,
+    updateLike,
+    setLoading,
+    optimisticUpdate,
+    revertUpdate,
+  } = useLikeState({
+    initialLikeCount: normalizedLikeCount,
+    initialHasLiked,
+  });
+
+  const { handleLike } = useLikeActions({
+    postId,
+    onSuccess: (newLikeCount, newHasLiked) => {
+      updateLike(newLikeCount, newHasLiked);
+      setLoading(false);
+    },
+    onError: () => {
+      const { newHasLiked: wasLiked } = optimisticUpdate();
+      revertUpdate(wasLiked ? likeCount - 1 : likeCount + 1, !wasLiked);
+      setLoading(false);
+    },
+  });
+
+  // Set up real-time listeners
+  useLikeRealtime({
+    postId,
+    onLikeUpdated: (_, newLikeCount, action) => {
+      const newHasLiked = action === "liked";
+      updateLike(newLikeCount, newHasLiked);
+    },
+  });
+
+  const handleClick = async () => {
     if (!isAuthenticated) {
       router.push(
         `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`,
@@ -32,39 +69,19 @@ export function LikeButton({
       return;
     }
 
-    const newHasLiked = !hasLiked;
-    const newLikeCount = newHasLiked ? likeCount + 1 : likeCount - 1;
+    const { newHasLiked, newLikeCount } = optimisticUpdate();
 
     // Optimistic update
-    setHasLiked(newHasLiked);
-    setLikeCount(newLikeCount);
-    setIsLiking(true);
-    updateLikeCount(postId, newLikeCount, newHasLiked);
+    updateLike(newLikeCount, newHasLiked);
+    setLoading(true);
 
-    try {
-      if (newHasLiked) {
-        await api.post(`/likes/${postId}/like`);
-      } else {
-        await api.delete(`/likes/${postId}/like`);
-      }
-    } catch (error) {
-      // Revert on error
-      setHasLiked(!newHasLiked);
-      setLikeCount(newHasLiked ? likeCount : likeCount + 1);
-      updateLikeCount(
-        postId,
-        newHasLiked ? likeCount : likeCount + 1,
-        !newHasLiked,
-      );
-      console.error("Like action failed:", error);
-    } finally {
-      setIsLiking(false);
-    }
+    // Make API call
+    await handleLike(newHasLiked);
   };
 
   return (
     <button
-      onClick={handleLike}
+      onClick={handleClick}
       disabled={isLiking}
       className={`flex items-center gap-1 transition-colors ${
         hasLiked ? "text-red-500" : "text-gray-500 hover:text-red-400"

@@ -43,16 +43,12 @@ class Post {
   }
 
   static async findAll(limit = 20, offset = 0, currentUserId = null) {
+    console.log("📊 Post.findAll - currentUserId:", currentUserId);
+
     if (!currentUserId) {
       const query = `
       SELECT 
-        p.id,
-        p.title,
-        p.content,
-        LEFT(p.content, 200) as excerpt,
-        p.user_id,
-        p.created_at,
-        p.updated_at,
+        p.*,
         u.username,
         u.full_name,
         u.avatar_url,
@@ -72,24 +68,22 @@ class Post {
       return result.rows;
     }
 
+    // User is logged in - check their likes
     const query = `
     SELECT 
-      p.id,
-      p.title,
-      p.content,
-      LEFT(p.content, 200) as excerpt,
-      p.user_id,
-      p.created_at,
-      p.updated_at,
+      p.*,
       u.username,
       u.full_name,
       u.avatar_url,
       COUNT(DISTINCT l.id) as like_count,
       COUNT(DISTINCT c.id) as comment_count,
-      EXISTS(
-        SELECT 1 FROM likes l2 
-        WHERE l2.post_id = p.id AND l2.user_id = $3
-      ) as user_has_liked
+      CASE 
+        WHEN EXISTS(
+          SELECT 1 FROM likes l2 
+          WHERE l2.post_id = p.id AND l2.user_id = $3::uuid
+        ) THEN true
+        ELSE false
+      END as user_has_liked
     FROM posts p
     JOIN users u ON p.user_id = u.id
     LEFT JOIN likes l ON p.id = l.post_id
@@ -100,11 +94,27 @@ class Post {
   `;
     const values = [limit, offset, currentUserId];
     const result = await pool.query(query, values);
+
+    // Debug: log first post's like status
+    if (result.rows.length > 0) {
+      console.log(
+        "📊 First post user_has_liked:",
+        result.rows[0].user_has_liked,
+      );
+      console.log("📊 First post ID:", result.rows[0].id);
+      console.log("📊 Current user ID:", currentUserId);
+    }
+
     return result.rows;
   }
 
   // Get single post with details
   static async findById(id, currentUserId = null) {
+    console.log("🔍 findById called with:");
+    console.log("  - postId:", id);
+    console.log("  - currentUserId:", currentUserId);
+    console.log("  - currentUserId type:", typeof currentUserId);
+
     if (!currentUserId) {
       const query = `
       SELECT 
@@ -129,9 +139,11 @@ class Post {
     `;
       const values = [id];
       const result = await pool.query(query, values);
+      console.log("🔍 No user logged in, user_has_liked: false");
       return result.rows[0];
     }
 
+    // Cast currentUserId to UUID properly
     const query = `
     SELECT 
       p.id,
@@ -147,7 +159,7 @@ class Post {
       COUNT(DISTINCT c.id) as comment_count,
       EXISTS(
         SELECT 1 FROM likes l2 
-        WHERE l2.post_id = p.id AND l2.user_id = $2
+        WHERE l2.post_id = p.id AND l2.user_id = $2::uuid
       ) as user_has_liked
     FROM posts p
     JOIN users u ON p.user_id = u.id
@@ -158,6 +170,17 @@ class Post {
   `;
     const values = [id, currentUserId];
     const result = await pool.query(query, values);
+
+    if (result.rows[0]) {
+      console.log(
+        "🔍 Query result - user_has_liked:",
+        result.rows[0].user_has_liked,
+      );
+      console.log("🔍 Query result - like_count:", result.rows[0].like_count);
+    } else {
+      console.log("🔍 No post found");
+    }
+
     return result.rows[0];
   }
 

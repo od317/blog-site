@@ -4,11 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 function getBackendUrl(): string {
   // In development (Docker), use the service name
   if (process.env.NODE_ENV === "development") {
-    return process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    return "http://backend:5000/api";
   }
   // In production (Render), use the environment variable
   return (
-    process.env.NEXT_PUBLIC_API_URL ||
+    
     "https://blog-backend-5dai.onrender.com/api"
   );
 }

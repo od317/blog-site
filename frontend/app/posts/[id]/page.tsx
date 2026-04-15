@@ -6,8 +6,7 @@ import { Post } from "@/types/Post";
 async function getPost(id: string): Promise<Post | null> {
   try {
     // Build URL
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    const baseUrl ="http://backend:5000/api";
     const url = `${baseUrl}/posts/${id}`;
 
     // Fetch from your backend API
@@ -32,8 +31,7 @@ async function getPost(id: string): Promise<Post | null> {
 
 // Generate static params for popular posts (ISR)
 export async function generateStaticParams() {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = "http://localhost:5000/api";
 
   try {
     const response = await fetch(`${baseUrl}/posts?limit=10&offset=0`, {

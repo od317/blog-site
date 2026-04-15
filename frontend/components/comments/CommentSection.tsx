@@ -100,7 +100,7 @@ export function CommentSection({
         postId,
         content,
       });
-
+      console.log(result);
       // ✅ Fix: Check the response structure correctly
       if (result.success && result.comment) {
         // The response has comment property directly

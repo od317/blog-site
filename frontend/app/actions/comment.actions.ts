@@ -19,7 +19,7 @@ export async function addComment({
   content: string;
 }): Promise<CommentResponse> {
   try {
-    const result = await authenticatedFetchJSON<Comment>(
+    const result = await authenticatedFetchJSON<CommentResponse>(
       `/posts/${postId}/comments`,
       {
         method: "POST",
@@ -36,10 +36,7 @@ export async function addComment({
 
     revalidatePath(`/posts/${postId}`);
 
-    return {
-      success: true,
-      comment: result.data,
-    };
+    return result.data;
   } catch (error) {
     console.error("Add comment action error:", error);
     return {

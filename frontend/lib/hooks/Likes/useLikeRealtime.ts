@@ -5,7 +5,12 @@ import { getSocket } from "@/lib/socket/client";
 
 interface UseLikeRealtimeProps {
   postId: string;
-  onLikeUpdated: (postId: string, likeCount: number, action: string) => void;
+  onLikeUpdated: (
+    postId: string,
+    likeCount: number,
+    action: string,
+    shouldUpdateUserStatus: boolean,
+  ) => void;
   currentUserId?: string;
 }
 
@@ -14,17 +19,15 @@ export function useLikeRealtime({
   onLikeUpdated,
   currentUserId,
 }: UseLikeRealtimeProps) {
-  // Use refs to store callbacks so they don't cause re-renders
   const onLikeUpdatedRef = useRef(onLikeUpdated);
   const currentUserIdRef = useRef(currentUserId);
 
-  // Update refs when callbacks change
   useEffect(() => {
     onLikeUpdatedRef.current = onLikeUpdated;
     currentUserIdRef.current = currentUserId;
+    console.log("📡 useLikeRealtime - currentUserId updated:", currentUserId);
   });
 
-  // Join post room - runs only when postId changes
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -36,7 +39,6 @@ export function useLikeRealtime({
     };
   }, [postId]);
 
-  // Listen for real-time like events - runs only once
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -48,14 +50,23 @@ export function useLikeRealtime({
       action: string;
     }) => {
       if (data.postId === postId) {
-        console.log(currentUserIdRef.current, data.userId);
-        // Skip if this is the current user's own like (already updated optimistically)
-        if (currentUserIdRef.current === data.userId) {
-          console.log("❤️ Skipping own like update");
-          return;
-        }
-        console.log("❤️ Real-time: Like update received", data);
-        onLikeUpdatedRef.current(data.postId, data.likeCount, data.action);
+        const isCurrentUser = currentUserIdRef.current === data.userId;
+
+        console.log("📡 Like event received:", {
+          eventUserId: data.userId,
+          currentUserId: currentUserIdRef.current,
+          isCurrentUser,
+          action: data.action,
+        });
+
+        // For current user: update both likeCount AND hasLiked
+        // For other users: update only likeCount
+        onLikeUpdatedRef.current(
+          data.postId,
+          data.likeCount,
+          data.action,
+          isCurrentUser, // This tells the callback whether to update user status
+        );
       }
     };
 

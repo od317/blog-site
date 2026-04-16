@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 interface LikeButtonProps {
   postId: string;
-  initialLikeCount: number | string; // Allow both number and string
+  initialLikeCount: number;
   initialHasLiked: boolean;
 }
 
@@ -17,14 +17,8 @@ export function LikeButton({
   initialLikeCount,
   initialHasLiked,
 }: LikeButtonProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const router = useRouter();
-
-  // Convert to number if it's a string
-  const normalizedLikeCount =
-    typeof initialLikeCount === "string"
-      ? parseInt(initialLikeCount, 10)
-      : initialLikeCount;
 
   const {
     likeCount,
@@ -34,10 +28,7 @@ export function LikeButton({
     setLoading,
     optimisticUpdate,
     revertUpdate,
-  } = useLikeState({
-    initialLikeCount: normalizedLikeCount,
-    initialHasLiked,
-  });
+  } = useLikeState({ initialLikeCount, initialHasLiked });
 
   const { handleLike } = useLikeActions({
     postId,
@@ -52,13 +43,17 @@ export function LikeButton({
     },
   });
 
-  // Set up real-time listeners
+  // ✅ Pass current user ID to real-time hook
   useLikeRealtime({
     postId,
-    onLikeUpdated: (_, newLikeCount, action) => {
-      const newHasLiked = action === "liked";
+    onLikeUpdated: (postId, newLikeCount, action, shouldUpdateUserStatus) => {
+      // Only update user's like status if this event is from the current user
+      const newHasLiked = shouldUpdateUserStatus
+        ? action === "liked"
+        : hasLiked;
       updateLike(newLikeCount, newHasLiked);
     },
+    currentUserId: user?.id,
   });
 
   const handleClick = async () => {

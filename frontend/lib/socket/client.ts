@@ -1,6 +1,7 @@
 import { io, Socket } from "socket.io-client";
 import { config } from "@/lib/config";
 import { getAccessToken } from "@/app/actions/auth.actions";
+import { Comment, Post } from "@/types/Post";
 
 let socket: Socket | null = null;
 let reconnectAttempts = 0;
@@ -102,14 +103,14 @@ export const onSubscribed = (callback: (data: { channel: string }) => void) => {
   return () => socket.off("subscribed", callback);
 };
 
-export const onNewPost = (callback: (post: any) => void) => {
+export const onNewPost = (callback: (post: Post) => void) => {
   const socket = getSocket();
   if (!socket) return () => {};
   socket.on("new-post", callback);
   return () => socket.off("new-post", callback);
 };
 
-export const onPostUpdated = (callback: (post: any) => void) => {
+export const onPostUpdated = (callback: (post: Post) => void) => {
   const socket = getSocket();
   if (!socket) return () => {};
   socket.on("post-updated", callback);
@@ -123,7 +124,7 @@ export const onPostDeleted = (callback: (data: { id: string }) => void) => {
   return () => socket.off("post-deleted", callback);
 };
 
-export const onNewComment = (callback: (comment: any) => void) => {
+export const onNewComment = (callback: (comment: Comment) => void) => {
   const socket = getSocket();
   if (!socket) return () => {};
   socket.on("new-comment", callback);
@@ -170,4 +171,29 @@ export const unsubscribeFromFeed = () => {
   if (socket?.connected) {
     socket.emit("unsubscribe-feed");
   }
+};
+
+export const onFollowersUpdated = (
+  callback: (data: {
+    userId: string;
+    followersCount: number;
+    isFollowing: boolean;
+    followerId: string;
+  }) => void,
+) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  socket.on("followers-updated", callback);
+  return () => socket.off("followers-updated", callback);
+};
+
+export const onFollowingUpdated = (
+  callback: (data: { userId: string; followingCount: number }) => void,
+) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  socket.on("following-updated", callback);
+  return () => socket.off("following-updated", callback);
 };

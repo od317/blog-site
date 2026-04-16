@@ -244,6 +244,24 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("join-profile", (profileUserId) => {
+    if (socket.currentProfileRoom) {
+      socket.leave(socket.currentProfileRoom);
+    }
+    socket.currentProfileRoom = `profile-${profileUserId}`;
+    socket.join(socket.currentProfileRoom);
+    console.log(`📖 Socket joined profile room: profile-${profileUserId}`);
+  });
+
+  socket.on("leave-profile", (profileUserId) => {
+    const room = `profile-${profileUserId}`;
+    socket.leave(room);
+    if (socket.currentProfileRoom === room) {
+      socket.currentProfileRoom = null;
+    }
+    console.log(`📖 Socket left profile room: ${room}`);
+});
+
   // Handle disconnection
   socket.on("disconnect", () => {
     if (currentPostId) {

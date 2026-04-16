@@ -1,24 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { UserProfile } from "@/types/Profile";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api/client";
+import { useFollowRealtime } from "@/lib/hooks/useFollowRealtime";
 
 interface ProfileHeaderProps {
   initialProfile: UserProfile;
 }
 
 export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [profile] = useState(initialProfile);
   const [isFollowing, setIsFollowing] = useState(initialProfile.isFollowing);
   const [followersCount, setFollowersCount] = useState(
     initialProfile.followers_count,
   );
   const [isLoading, setIsLoading] = useState(false);
+
+  // Set up real-time follow updates
+  useFollowRealtime({
+    profileUserId: profile.id,
+    onFollowersCountUpdate: (newCount, shouldUpdateButtonState) => {
+      setFollowersCount(newCount);
+      if (shouldUpdateButtonState !== undefined) {
+        setIsFollowing(shouldUpdateButtonState);
+      }
+    },
+    currentUserId: user?.id,
+  });
 
   const handleFollowToggle = async () => {
     if (!isAuthenticated) {
@@ -30,16 +43,21 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
 
     try {
       if (isFollowing) {
-        await api.delete(`/profile/${profile.id}/follow`);
+        const response = await api.delete(`/profile/${profile.id}/follow`);
+        // Optimistic update
         setFollowersCount((prev) => prev - 1);
         setIsFollowing(false);
       } else {
-        await api.post(`/profile/${profile.id}/follow`);
+        const response = await api.post(`/profile/${profile.id}/follow`);
+        // Optimistic update
         setFollowersCount((prev) => prev + 1);
         setIsFollowing(true);
       }
     } catch (error) {
       console.error("Follow action failed:", error);
+      // Revert optimistic update on error
+      setFollowersCount(followersCount);
+      setIsFollowing(isFollowing);
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +118,11 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
           </div>
         </div>
 
-        {!profile.isOwnProfile && (
+        {profile.isOwnProfile ? (
+          <Button variant="outline" className="mt-4">
+            Edit Profile
+          </Button>
+        ) : (
           <Button
             onClick={handleFollowToggle}
             isLoading={isLoading}
@@ -108,12 +130,6 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
             className="mt-4"
           >
             {isFollowing ? "Following" : "Follow"}
-          </Button>
-        )}
-
-        {profile.isOwnProfile && (
-          <Button variant="outline" className="mt-4">
-            Edit Profile
           </Button>
         )}
       </div>

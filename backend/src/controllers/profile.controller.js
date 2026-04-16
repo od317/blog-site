@@ -1,35 +1,70 @@
 const User = require("../models/User");
 const { calculateReadingTime } = require("../utils/readingTime");
+const pool = require("../config/database");
 
 // Get user profile with stats
 exports.getProfile = async (req, res) => {
   try {
     const { username } = req.params;
 
+    console.log("🔍 Getting profile for username:", username);
+    console.log("🔍 Current user ID (from auth):", req.userId);
+    console.log("request headers are", req.headers);
     // First find user by username
     const user = await User.findByUsername(username);
     if (!user) {
+      console.log("❌ User not found:", username);
       return res.status(404).json({ error: "User not found" });
     }
 
+    console.log("✅ Found user:", {
+      id: user.id,
+      username: user.username,
+    });
+
     // Get full profile with stats
     const profile = await User.getProfile(user.id);
+    console.log("📊 Profile stats:", {
+      followers_count: profile.followers_count,
+      following_count: profile.following_count,
+      posts_count: profile.posts_count,
+    });
 
     // Check if current user is following this profile
     let isFollowing = false;
     if (req.userId) {
+      console.log("🔍 Checking follow status between:", {
+        follower: req.userId,
+        following: user.id,
+      });
+
       const followCheck = await pool.query(
         "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2",
         [req.userId, user.id],
       );
+
       isFollowing = followCheck.rows.length > 0;
+      console.log("📊 Follow check result:", {
+        exists: isFollowing,
+        rowsFound: followCheck.rows.length,
+      });
+    } else {
+      console.log("⚠️ No user logged in, skipping follow check");
     }
 
-    res.json({
+    const responseData = {
       ...profile,
       isFollowing,
       isOwnProfile: req.userId === user.id,
+    };
+
+    console.log("📤 Response data:", {
+      isFollowing: responseData.isFollowing,
+      isOwnProfile: responseData.isOwnProfile,
+      followers_count: responseData.followers_count,
     });
+
+    res.json(responseData);
   } catch (error) {
     console.error("Get profile error:", error);
     res.status(500).json({ error: "Failed to get profile" });
@@ -145,7 +180,38 @@ exports.followUser = async (req, res) => {
       [followerId],
     );
 
-    res.json({ message: "User followed successfully" });
+    // Get updated counts
+    const newFollowersCount = await pool.query(
+      "SELECT followers_count FROM users WHERE id = $1",
+      [userId],
+    );
+
+    const newFollowingCount = await pool.query(
+      "SELECT following_count FROM users WHERE id = $1",
+      [followerId],
+    );
+
+    // Emit real-time update
+    const io = req.app.get("io");
+
+    // Notify the profile page being viewed
+    io.to(`profile-${userId}`).emit("followers-updated", {
+      userId,
+      followersCount: parseInt(newFollowersCount.rows[0].followers_count),
+      isFollowing: true,
+      followerId,
+    });
+
+    // Also notify the follower's profile (if they're viewing their own following count)
+    io.to(`profile-${followerId}`).emit("following-updated", {
+      userId: followerId,
+      followingCount: parseInt(newFollowingCount.rows[0].following_count),
+    });
+
+    res.json({
+      message: "User followed successfully",
+      followersCount: parseInt(newFollowersCount.rows[0].followers_count),
+    });
   } catch (error) {
     console.error("Follow user error:", error);
     res.status(500).json({ error: "Failed to follow user" });
@@ -178,7 +244,38 @@ exports.unfollowUser = async (req, res) => {
       [followerId],
     );
 
-    res.json({ message: "User unfollowed successfully" });
+    // Get updated counts
+    const newFollowersCount = await pool.query(
+      "SELECT followers_count FROM users WHERE id = $1",
+      [userId],
+    );
+
+    const newFollowingCount = await pool.query(
+      "SELECT following_count FROM users WHERE id = $1",
+      [followerId],
+    );
+
+    // Emit real-time update
+    const io = req.app.get("io");
+
+    // Notify the profile page being viewed
+    io.to(`profile-${userId}`).emit("followers-updated", {
+      userId,
+      followersCount: parseInt(newFollowersCount.rows[0].followers_count),
+      isFollowing: false,
+      followerId,
+    });
+
+    // Also notify the follower's profile
+    io.to(`profile-${followerId}`).emit("following-updated", {
+      userId: followerId,
+      followingCount: parseInt(newFollowingCount.rows[0].following_count),
+    });
+
+    res.json({
+      message: "User unfollowed successfully",
+      followersCount: parseInt(newFollowersCount.rows[0].followers_count),
+    });
   } catch (error) {
     console.error("Unfollow user error:", error);
     res.status(500).json({ error: "Failed to unfollow user" });

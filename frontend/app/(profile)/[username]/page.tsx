@@ -1,59 +1,55 @@
-// ============================================
-// CACHING STRATEGY: ISR (Incremental Static Regeneration)
-// WHERE: Server-side (Next.js)
-// WHY: Profile data changes infrequently, but we want it fresh
-// REVALIDATION: 60 seconds - balance between freshness and performance
-// ============================================
-
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfilePosts } from "@/components/profile/ProfilePosts";
 import { ProfilePageProps, UserProfile } from "@/types/Profile";
 
 // ============================================
-// DATA FETCHING - SERVER SIDE
-// CACHE: force-cache (default for fetch)
-// REVALIDATION: 60 seconds (ISR)
+// DATA FETCHING - SERVER SIDE (Fixed - same pattern as post page)
 // ============================================
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
+    // ✅ Get cookies for authentication (same as post page)
+    const cookieStore = await cookies();
+    const cookieString = cookieStore.toString();
+
+    // Build URL
     const baseUrl = "http://backend:5000/api";
     const url = `${baseUrl}/profile/${username}`;
 
-    // Next.js automatically caches this fetch
-    // revalidate: 60 means it will be regenerated every 60 seconds
+    console.log("🔍 Fetching profile:", url);
+    console.log("🔍 Cookies being sent:", cookieString ? "Yes" : "No");
+
+    // Fetch from backend API with cookies (same as post page)
     const response = await fetch(url, {
-      next: {
-        revalidate: 60, // ISR: regenerate every 60 seconds
-      },
       headers: {
-        Cookie: await getCookieString(), // Pass cookies for auth
+        Cookie: cookieString,
       },
+      cache: "no-store",
     });
+
     if (!response.ok) {
       if (response.status === 404) return null;
       throw new Error(`Failed to fetch profile: ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log("📦 Profile data received:", {
+      username: data.username,
+      isFollowing: data.isFollowing,
+    });
+
+    return data;
   } catch (error) {
     console.error("Error fetching profile:", error);
     return null;
   }
 }
 
-// Helper to get cookies for server-side requests
-async function getCookieString(): Promise<string> {
-  const cookieStore = await import("next/headers").then((mod) => mod.cookies());
-  return cookieStore.toString();
-}
-
 // ============================================
 // METADATA - SEO OPTIMIZATION
-// GENERATION: Server-side per request
-// CACHE: ISR (same as page)
 // ============================================
 export async function generateMetadata({
   params,
@@ -80,13 +76,9 @@ export async function generateMetadata({
 }
 
 // ============================================
-// GENERATE STATIC PARAMS (Optional)
-// For popular users - pre-render at build time
-// CACHE: Build-time static generation
+// GENERATE STATIC PARAMS
 // ============================================
 export async function generateStaticParams() {
-  // Optional: Pre-render most popular users
-  // For now, return empty array - rely on ISR
   return [];
 }
 
@@ -117,8 +109,6 @@ function ProfilePostsSkeleton() {
 
 // ============================================
 // MAIN PAGE COMPONENT
-// RENDERING: Server Component (ISR)
-// CACHE: Revalidated every 60 seconds
 // ============================================
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
@@ -131,12 +121,10 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-4xl px-4 py-8">
-        {/* Profile Header - Static, server-rendered */}
         <Suspense fallback={<ProfileHeaderSkeleton />}>
           <ProfileHeader initialProfile={profile} />
         </Suspense>
 
-        {/* Posts Section - Client component with pagination */}
         <div className="mt-8">
           <Suspense fallback={<ProfilePostsSkeleton />}>
             <ProfilePosts username={username} />

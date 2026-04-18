@@ -36,9 +36,7 @@ export async function generateStaticParams() {
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
   try {
-    const response = await fetch(`${baseUrl}/posts?limit=10&offset=0`, {
-      cache: "no-store",
-    });
+    const response = await fetch(`${baseUrl}/posts?limit=10&offset=0`);
 
     if (!response.ok) {
       return [];

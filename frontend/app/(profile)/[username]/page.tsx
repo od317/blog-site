@@ -16,9 +16,7 @@ async function getProfile(username: string): Promise<UserProfile | null> {
     const url = `${baseUrl}/profile/${username}`;
 
     // Fetch from backend API with cookies (same as post page)
-    const response = await fetch(url, {
-      cache: "no-store",
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
       if (response.status === 404) return null;

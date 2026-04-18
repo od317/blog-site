@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfilePosts } from "@/components/profile/ProfilePosts";
@@ -11,22 +10,13 @@ import { ProfilePageProps, UserProfile } from "@/types/Profile";
 // ============================================
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
-    // ✅ Get cookies for authentication (same as post page)
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-
     // Build URL
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/profile/${username}`;
-
-    console.log("🔍 Fetching profile:", url);
-    console.log("🔍 Cookies being sent:", cookieString ? "Yes" : "No");
 
     // Fetch from backend API with cookies (same as post page)
     const response = await fetch(url, {
-      headers: {
-        Cookie: cookieString,
-      },
       cache: "no-store",
     });
 

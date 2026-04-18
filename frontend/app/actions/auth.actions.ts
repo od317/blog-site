@@ -6,11 +6,10 @@ import { redirect } from "next/navigation";
 export async function setAuthTokens(accessToken: string, refreshToken: string) {
   const cookieStore = await cookies();
   const isProduction = process.env.NODE_ENV === "production";
-
   cookieStore.set("accessToken", accessToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: "none",
     path: "/",
     maxAge: 15 * 60, // 15 minutes
   });
@@ -18,7 +17,7 @@ export async function setAuthTokens(accessToken: string, refreshToken: string) {
   cookieStore.set("refreshToken", refreshToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: "none",
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
   });

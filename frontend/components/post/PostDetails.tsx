@@ -12,6 +12,7 @@ import { deletePost } from "@/app/actions/post.actions";
 import { getSocket } from "@/lib/socket/client";
 import type { Post, Comment } from "@/types/Post";
 import { CommentSection } from "../comments/CommentSection";
+import { PostLikeStatus } from "./PostLikeStatus";
 
 interface PostDetailsProps {
   post: Post;
@@ -214,11 +215,7 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
         </div>
 
         <div className="mt-4 flex items-center gap-4 border-t pt-4">
-          <LikeButton
-            postId={post.id}
-            initialLikeCount={post.like_count}
-            initialHasLiked={post.user_has_liked}
-          />
+          <PostLikeStatus postId={post.id} initialLikeCount={post.like_count} />
           <button className="flex items-center gap-1 text-gray-500 hover:text-blue-500">
             <span>💬</span>
             <span className="text-sm">{post.comment_count}</span>

@@ -1,16 +1,16 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { PostDetails } from "@/components/post/PostDetails";
 import { Post } from "@/types/Post";
 
-// Fetch post data on the server with authentication
+// Fetch post data on the server (public data only)
 async function getPost(id: string): Promise<Post | null> {
   try {
-    // Build URL
     const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+      "http://backend:5000/api";
     const url = `${baseUrl}/posts/${id}`;
 
-    // Fetch from your backend API with cookies
+    // No cookies needed - only public data
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -41,8 +41,6 @@ export async function generateStaticParams() {
     }
 
     const posts = await response.json();
-
-    // Return params for each post
     return posts.map((post: Post) => ({
       id: post.id,
     }));
@@ -89,6 +87,34 @@ export async function generateMetadata({
   };
 }
 
+// Loading component for Suspense
+function PostDetailsSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="animate-pulse">
+          <div className="mb-4 h-10 w-32 rounded bg-gray-200" />
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-gray-200" />
+              <div className="flex-1">
+                <div className="h-4 w-32 rounded bg-gray-200" />
+                <div className="mt-1 h-3 w-24 rounded bg-gray-200" />
+              </div>
+            </div>
+            <div className="h-8 w-3/4 rounded bg-gray-200" />
+            <div className="mt-4 space-y-2">
+              <div className="h-4 w-full rounded bg-gray-200" />
+              <div className="h-4 w-5/6 rounded bg-gray-200" />
+              <div className="h-4 w-4/6 rounded bg-gray-200" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Main page component
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -104,10 +130,12 @@ export default async function PostPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <PostDetails post={post} />
+    <Suspense fallback={<PostDetailsSkeleton />}>
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-4xl px-4 py-8">
+          <PostDetails post={post} />
+        </div>
       </div>
-    </div>
+    </Suspense>
   );
 }

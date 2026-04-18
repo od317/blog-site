@@ -11,9 +11,7 @@ async function getPost(id: string): Promise<Post | null> {
     const url = `${baseUrl}/posts/${id}`;
 
     // Fetch from your backend API with cookies
-    const response = await fetch(url, {
-      cache: "no-store",
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
       if (response.status === 404) {

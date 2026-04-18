@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { UserProfile } from "@/types/Profile";
 import { Button } from "@/components/ui/Button";
-import { api } from "@/lib/api/client";
+import { followUser, unfollowUser } from "@/app/actions/follow.actions";
 import { useFollowRealtime } from "@/lib/hooks/useFollowRealtime";
 
 interface ProfileHeaderProps {
@@ -29,7 +29,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     const fetchFollowStatus = async () => {
       try {
         const baseUrl =
-          process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL ||  "http://backend:5000/api";
+          process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
         const response = await fetch(
           `${baseUrl}/profile/${initialProfile.username}`,
           {
@@ -58,7 +58,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     fetchFollowStatus();
   }, [initialProfile.username, isAuthLoading]);
 
-  // Set up real-time follow updates - FIXED callback signature
+  // Set up real-time follow updates
   useFollowRealtime({
     profileUserId: initialProfile.id,
     onFollowersCountUpdate: (newCount: number, isFollowingState: boolean) => {
@@ -93,9 +93,15 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
 
     try {
       if (newIsFollowing) {
-        await api.post(`/profile/${initialProfile.id}/follow`);
+        const result = await followUser(initialProfile.id);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
       } else {
-        await api.delete(`/profile/${initialProfile.id}/follow`);
+        const result = await unfollowUser(initialProfile.id);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
       }
     } catch (error) {
       // Revert on error

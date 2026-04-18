@@ -115,12 +115,45 @@ exports.checkLike = async (req, res) => {
     const { postId } = req.params;
     const userId = req.userId;
 
+    // 📋 Log request details
+    console.log("\n🔍 ========== CHECK LIKE REQUEST ==========");
+    console.log("📌 Timestamp:", new Date().toISOString());
+    console.log("📌 Post ID:", postId);
+    console.log("📌 User ID from request:", userId);
+    console.log("📌 User ID type:", typeof userId);
+    console.log("📌 Is user authenticated:", !!userId);
+
+    // 📋 Log cookies (if any)
+    console.log("📌 Cookies present:", {
+      hasAccessToken: !!req.cookies?.accessToken,
+      hasRefreshToken: !!req.cookies?.refreshToken,
+      allCookieNames: req.cookies ? Object.keys(req.cookies) : [],
+    });
+
+    // 📋 Log headers
+    console.log("📌 Authorization header:", {
+      present: !!req.headers?.authorization,
+      preview: req.headers?.authorization
+        ? req.headers.authorization.substring(0, 50) + "..."
+        : "none",
+    });
+
+    // Check like status
     const hasLiked = await Like.hasLiked(postId, userId);
     const likeCount = await Like.getCount(postId);
 
+    // 📋 Log results
+    console.log("📊 Like Status Result:");
+    console.log("   - hasLiked:", hasLiked);
+    console.log("   - likeCount:", likeCount);
+    console.log("   - postId:", postId);
+    console.log("   - userId:", userId);
+    console.log("🔍 ========== END CHECK LIKE ==========\n");
+
     res.json({ hasLiked, likeCount });
   } catch (error) {
-    console.error("Check like error:", error);
+    console.error("❌ Check like error:", error);
+    console.error("❌ Error stack:", error.stack);
     res.status(500).json({ error: "Failed to check like status" });
   }
 };

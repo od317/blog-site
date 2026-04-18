@@ -43,18 +43,36 @@ class Like {
   }
 
   // Check if user liked post
+  // Check if user liked post
   static async hasLiked(postId, userId) {
+    console.log("📊 Like.hasLiked called with:");
+    console.log("   - postId:", postId);
+    console.log("   - userId:", userId);
+    console.log("   - userId type:", typeof userId);
+
+    if (!userId) {
+      console.log("   - No userId provided, returning false");
+      return false;
+    }
+
     const query = "SELECT 1 FROM likes WHERE post_id = $1 AND user_id = $2";
     const values = [postId, userId];
     const result = await pool.query(query, values);
-    return result.rows.length > 0;
+
+    const hasLiked = result.rows.length > 0;
+    console.log(`   - Query result: ${hasLiked ? "LIKED ✅" : "NOT LIKED ❌"}`);
+
+    return hasLiked;
   }
 
   // Get like count for a post
   static async getCount(postId) {
+    console.log("📊 Like.getCount called for postId:", postId);
     const query = "SELECT COUNT(*) as count FROM likes WHERE post_id = $1";
     const result = await pool.query(query, [postId]);
-    return parseInt(result.rows[0].count);
+    const count = parseInt(result.rows[0].count);
+    console.log(`   - Total likes: ${count}`);
+    return count;
   }
 
   // Get all likes for multiple posts (for feed)

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { LikeButton } from "./LikeButton";
+import { getLikeStatus } from "@/app/actions/like.actions";
 
 interface PostLikeStatusProps {
   postId: string;
@@ -19,37 +20,36 @@ export function PostLikeStatus({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isAuthLoading) return;
+    // Wait for auth to load
+    if (isAuthLoading) {
+      return;
+    }
 
+    // If not authenticated, show default state
     if (!isAuthenticated) {
       setHasLiked(false);
       setIsLoading(false);
       return;
     }
 
+    // Fetch like status using server action
     const fetchLikeStatus = async () => {
       try {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
-        const response = await fetch(`${baseUrl}/likes/${postId}/like`, {
-          method: "GET",
-          credentials: "include", // ✅ This is critical - sends cookies
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        const result = await getLikeStatus(postId);
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log("PostLikeStatus fetched:", data);
-          setHasLiked(data.hasLiked);
-          setLikeCount(data.likeCount);
-        } else if (response.status === 401) {
-          console.log("Unauthorized, token may be expired");
+        if (result.success) {
+          console.log("PostLikeStatus fetched via server action:", {
+            hasLiked: result.hasLiked,
+            likeCount: result.likeCount,
+          });
+          setHasLiked(result.hasLiked || false);
+          setLikeCount(result.likeCount || initialLikeCount);
+        } else {
+          console.error("Failed to fetch like status:", result.error);
           setHasLiked(false);
         }
       } catch (error) {
-        console.error("Failed to fetch like status:", error);
+        console.error("Error fetching like status:", error);
         setHasLiked(false);
       } finally {
         setIsLoading(false);
@@ -57,8 +57,9 @@ export function PostLikeStatus({
     };
 
     fetchLikeStatus();
-  }, [postId, isAuthenticated, isAuthLoading]);
+  }, [postId, isAuthenticated, isAuthLoading, initialLikeCount]);
 
+  // Show loading state while checking auth or fetching
   if (isAuthLoading || isLoading) {
     return (
       <div className="flex items-center gap-1 text-gray-400">

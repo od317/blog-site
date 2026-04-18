@@ -1,24 +1,17 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
 import { PostDetails } from "@/components/post/PostDetails";
 import { Post } from "@/types/Post";
 
 // Fetch post data on the server with authentication
 async function getPost(id: string): Promise<Post | null> {
   try {
-    // Get cookies for authentication
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-
     // Build URL
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${id}`;
 
     // Fetch from your backend API with cookies
     const response = await fetch(url, {
-      headers: {
-        Cookie: cookieString,
-      },
       cache: "no-store",
     });
 

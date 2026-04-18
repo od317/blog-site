@@ -37,7 +37,7 @@ export function PostLikeStatus({
     const fetchLikeStatus = async () => {
       try {
         const baseUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+          process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL ||  "http://backend:5000/api";
         const response = await fetch(`${baseUrl}/likes/${postId}/like`, {
           credentials: "include",
         });

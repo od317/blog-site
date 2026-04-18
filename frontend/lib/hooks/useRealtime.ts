@@ -61,7 +61,7 @@ export function useRealtime() {
 
         const unsubscribeNewComment = onNewComment((comment) => {
           console.log("📢 Real-time: New comment on post", comment.post_id);
-          updateCommentCount(comment.post_id);
+          // updateCommentCount(comment.post_id);
         });
 
         const unsubscribeLikeUpdated = onLikeUpdated(

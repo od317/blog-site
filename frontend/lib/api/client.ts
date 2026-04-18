@@ -243,6 +243,11 @@ export class ApiClient {
   async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, {
       method: "GET",
+      credentials: "include", // ✅ Add this
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
       ...options,
     });
   }

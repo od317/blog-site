@@ -107,11 +107,19 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
       return [newComment, ...prev];
     });
 
+    // Convert to number before incrementing
+    const currentCount =
+      typeof post.comment_count === "string"
+        ? parseInt(post.comment_count, 10)
+        : post.comment_count;
+
+    const newCount = currentCount + 1;
+
     setPost((prev) => ({
       ...prev,
-      comment_count: prev.comment_count + 1,
+      comment_count: newCount,
     }));
-    updateCommentCount(post.id);
+    updateCommentCount(post.id, newCount);
   };
 
   const handleCommentUpdated = (updatedComment: Comment) => {
@@ -122,10 +130,20 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
 
   const handleCommentDeleted = (commentId: string) => {
     setComments((prev) => prev.filter((c) => c.id !== commentId));
+
+    // Convert to number before decrementing
+    const currentCount =
+      typeof post.comment_count === "string"
+        ? parseInt(post.comment_count, 10)
+        : post.comment_count;
+
+    const newCount = Math.max(0, currentCount - 1);
+
     setPost((prev) => ({
       ...prev,
-      comment_count: prev.comment_count - 1,
+      comment_count: newCount,
     }));
+    updateCommentCount(post.id, newCount);
   };
 
   const formatDate = (dateString: string) => {

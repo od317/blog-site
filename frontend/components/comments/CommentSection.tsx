@@ -140,16 +140,12 @@ export function CommentSection({
     const commentToDelete = comments.find((c) => c.id === commentId);
     if (!commentToDelete) return;
 
-    // Optimistic delete
-    onCommentDeleted(commentId);
     setIsUpdating(true);
 
     try {
       const result = await deleteComment(commentId, postId);
 
       if (!result.success) {
-        // Restore comment on failure
-        onCommentAdded(commentToDelete);
         console.error("Failed to delete comment:", result.error);
       } else {
         // Emit to other users

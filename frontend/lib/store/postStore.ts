@@ -22,7 +22,7 @@ interface PostStore {
     likeCount: number,
     userHasLiked: boolean,
   ) => void;
-  updateCommentCount: (postId: string) => void;
+  updateCommentCount: (postId: string, newCount: number) => void;
   clearFailedPosts: () => void;
 }
 
@@ -185,12 +185,10 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }));
   },
 
-  updateCommentCount: (postId) => {
+  updateCommentCount: (postId, newCount) => {
     set((state) => ({
       posts: state.posts.map((post) =>
-        post.id === postId
-          ? { ...post, comment_count: post.comment_count + 1 }
-          : post,
+        post.id === postId ? { ...post, comment_count: newCount } : post,
       ),
     }));
   },

@@ -16,7 +16,7 @@ async function getProfile(username: string): Promise<UserProfile | null> {
     const cookieString = cookieStore.toString();
 
     // Build URL
-    const baseUrl = "http://backend:5000/api";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/profile/${username}`;
 
     console.log("🔍 Fetching profile:", url);

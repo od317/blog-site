@@ -1,73 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { UserProfile } from "@/types/Profile";
 import { Button } from "@/components/ui/Button";
 import { followUser, unfollowUser } from "@/app/actions/follow.actions";
 import { useFollowRealtime } from "@/lib/hooks/useFollowRealtime";
+import { useState } from "react";
 
 interface ProfileHeaderProps {
   initialProfile: UserProfile;
 }
 
 export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [isFollowing, setIsFollowing] = useState(initialProfile.isFollowing);
   const [followersCount, setFollowersCount] = useState(
     initialProfile.followers_count,
   );
-  const [isOwnProfile, setIsOwnProfile] = useState(initialProfile.isOwnProfile);
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Fetch fresh follow status on client (for SSG pages)
-  useEffect(() => {
-    if (isAuthLoading) return;
-
-    const fetchFollowStatus = async () => {
-      try {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
-        const response = await fetch(
-          `${baseUrl}/profile/${initialProfile.username}`,
-          {
-            credentials: "include",
-          },
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Profile follow status fetched:", {
-            isFollowing: data.isFollowing,
-            isOwnProfile: data.isOwnProfile,
-            followersCount: data.followers_count,
-          });
-          setIsFollowing(data.isFollowing);
-          setFollowersCount(data.followers_count);
-          setIsOwnProfile(data.isOwnProfile);
-        }
-      } catch (error) {
-        console.error("Failed to fetch follow status:", error);
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-
-    fetchFollowStatus();
-  }, [initialProfile.username, isAuthLoading]);
 
   // Set up real-time follow updates
   useFollowRealtime({
     profileUserId: initialProfile.id,
     onFollowersCountUpdate: (newCount: number, isFollowingState: boolean) => {
-      console.log(
-        "🔄 Real-time: Updating followers count to:",
-        newCount,
-        "isFollowing:",
-        isFollowingState,
-      );
       setFollowersCount(newCount);
       setIsFollowing(isFollowingState);
     },
@@ -94,14 +50,10 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     try {
       if (newIsFollowing) {
         const result = await followUser(initialProfile.id);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
+        if (!result.success) throw new Error(result.error);
       } else {
         const result = await unfollowUser(initialProfile.id);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
+        if (!result.success) throw new Error(result.error);
       }
     } catch (error) {
       // Revert on error
@@ -113,16 +65,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     }
   };
 
-  // Use the fetched values if initialized, otherwise fallback to initial
-  const displayIsFollowing = isInitialized
-    ? isFollowing
-    : initialProfile.isFollowing;
-  const displayFollowersCount = isInitialized
-    ? followersCount
-    : initialProfile.followers_count;
-  const displayIsOwnProfile = isInitialized
-    ? isOwnProfile
-    : initialProfile.isOwnProfile;
+  const isOwnProfile = user?.id === initialProfile.id;
 
   return (
     <div className="rounded-lg bg-white p-6 shadow-sm">
@@ -143,20 +86,16 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
           )}
         </div>
 
-        {/* Name */}
         <h1 className="mt-4 text-2xl font-bold text-gray-900">
           {initialProfile.full_name || initialProfile.username}
         </h1>
 
-        {/* Username */}
         <p className="text-gray-500">@{initialProfile.username}</p>
 
-        {/* Bio */}
         {initialProfile.bio && (
           <p className="mt-2 text-center text-gray-700">{initialProfile.bio}</p>
         )}
 
-        {/* Stats */}
         <div className="mt-4 flex gap-6">
           <div className="text-center">
             <div className="text-xl font-bold text-gray-900">
@@ -166,7 +105,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
           </div>
           <div className="text-center">
             <div className="text-xl font-bold text-gray-900">
-              {displayFollowersCount}
+              {followersCount}
             </div>
             <div className="text-sm text-gray-500">Followers</div>
           </div>
@@ -184,8 +123,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
           </div>
         </div>
 
-        {/* Follow/Edit Button */}
-        {displayIsOwnProfile ? (
+        {isOwnProfile ? (
           <Button variant="outline" className="mt-4">
             Edit Profile
           </Button>
@@ -193,10 +131,10 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
           <Button
             onClick={handleFollowToggle}
             isLoading={isLoading}
-            variant={displayIsFollowing ? "outline" : "primary"}
+            variant={isFollowing ? "outline" : "primary"}
             className="mt-4"
           >
-            {displayIsFollowing ? "Following" : "Follow"}
+            {isFollowing ? "Following" : "Follow"}
           </Button>
         )}
       </div>

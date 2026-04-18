@@ -10,7 +10,8 @@ import { ProfilePageProps, UserProfile } from "@/types/Profile";
 // ============================================
 async function getStaticProfile(username: string): Promise<UserProfile | null> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ||;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/profile/${username}`;
 
     // No cookies - static data only

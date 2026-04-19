@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { LikeButton } from "./LikeButton";
-import { getLikeStatus } from "@/app/actions/like.actions";
+import { api } from "@/lib/api/client";
 
 interface PostLikeStatusProps {
   postId: string;
@@ -32,22 +32,21 @@ export function PostLikeStatus({
       return;
     }
 
-    // Fetch like status using server action
+    // Fetch like status using API client
     const fetchLikeStatus = async () => {
       try {
-        const result = await getLikeStatus(postId);
+        console.log("🔍 Fetching like status for post:", postId);
 
-        if (result.success) {
-          console.log("PostLikeStatus fetched via server action:", {
-            hasLiked: result.hasLiked,
-            likeCount: result.likeCount,
-          });
-          setHasLiked(result.hasLiked || false);
-          setLikeCount(result.likeCount || initialLikeCount);
-        } else {
-          console.error("Failed to fetch like status:", result.error);
-          setHasLiked(false);
-        }
+        // Use API client which handles cookies automatically
+        const response = await api.get<{
+          hasLiked: boolean;
+          likeCount: number;
+        }>(`/likes/${postId}/status`);
+
+        console.log("🔍 Like status response:", response);
+
+        setHasLiked(response.hasLiked);
+        setLikeCount(response.likeCount);
       } catch (error) {
         console.error("Error fetching like status:", error);
         setHasLiked(false);
@@ -57,7 +56,7 @@ export function PostLikeStatus({
     };
 
     fetchLikeStatus();
-  }, [postId, isAuthenticated, isAuthLoading, initialLikeCount]);
+  }, [postId, isAuthenticated, isAuthLoading]);
 
   // Show loading state while checking auth or fetching
   if (isAuthLoading || isLoading) {

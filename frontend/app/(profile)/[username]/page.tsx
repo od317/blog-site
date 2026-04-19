@@ -1,20 +1,20 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import ProfileHeaderWrapper from "@/components/profile/ProfileHeaderWrapper";
+import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfilePosts } from "@/components/profile/ProfilePosts";
 import { ProfilePageProps, UserProfile } from "@/types/Profile";
 
 // ============================================
-// STATIC DATA FETCHING (no cookies, for SSG)
+// DATA FETCHING - SERVER SIDE (Fixed - same pattern as post page)
 // ============================================
-async function getStaticProfile(username: string): Promise<UserProfile | null> {
+async function getProfile(username: string): Promise<UserProfile | null> {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
+    // Build URL
+    const baseUrl = "http://backend:5000/api";
     const url = `${baseUrl}/profile/${username}`;
 
-    // No cookies - static data only
+    // Fetch from backend API with cookies (same as post page)
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -23,25 +23,14 @@ async function getStaticProfile(username: string): Promise<UserProfile | null> {
     }
 
     const data = await response.json();
-
-    // Return only static fields (remove user-specific data)
-    return {
-      id: data.id,
+    console.log("📦 Profile data received:", {
       username: data.username,
-      full_name: data.full_name,
-      avatar_url: data.avatar_url,
-      bio: data.bio,
-      posts_count: data.posts_count,
-      following_count: data.following_count,
-      total_likes_received: data.total_likes_received,
-      created_at: data.created_at,
-      // Static defaults for user-specific fields
-      followers_count: data.followers_count, // Will be updated by wrapper
-      isFollowing: false,
-      isOwnProfile: false,
-    };
+      isFollowing: data.isFollowing,
+    });
+
+    return data;
   } catch (error) {
-    console.error("Error fetching static profile:", error);
+    console.error("Error fetching profile:", error);
     return null;
   }
 }
@@ -53,7 +42,7 @@ export async function generateMetadata({
   params,
 }: ProfilePageProps): Promise<Metadata> {
   const { username } = await params;
-  const profile = await getStaticProfile(username);
+  const profile = await getProfile(username);
 
   if (!profile) {
     return {
@@ -77,7 +66,6 @@ export async function generateMetadata({
 // GENERATE STATIC PARAMS
 // ============================================
 export async function generateStaticParams() {
-  // Pre-generate popular profiles here
   return [];
 }
 
@@ -107,13 +95,13 @@ function ProfilePostsSkeleton() {
 }
 
 // ============================================
-// MAIN PAGE COMPONENT (SSG)
+// MAIN PAGE COMPONENT
 // ============================================
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
-  const staticProfile = await getStaticProfile(username);
+  const profile = await getProfile(username);
 
-  if (!staticProfile) {
+  if (!profile) {
     notFound();
   }
 
@@ -121,11 +109,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Suspense fallback={<ProfileHeaderSkeleton />}>
-          <ProfileHeaderWrapper
-            username={username}
-            staticProfile={staticProfile}
-          />
+          <ProfileHeader initialProfile={profile} />
         </Suspense>
+
         <div className="mt-8">
           <Suspense fallback={<ProfilePostsSkeleton />}>
             <ProfilePosts username={username} />

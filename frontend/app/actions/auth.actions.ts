@@ -11,7 +11,6 @@ export async function setAuthTokens(accessToken: string, refreshToken: string) {
     httpOnly: true,
     secure: isProduction,
     sameSite: "strict",
-    path: "/",
     maxAge: 15 * 60, // 15 minutes
   });
 
@@ -19,7 +18,6 @@ export async function setAuthTokens(accessToken: string, refreshToken: string) {
     httpOnly: true,
     secure: isProduction,
     sameSite: "strict",
-    path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
   });
 

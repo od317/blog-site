@@ -15,7 +15,8 @@ export async function GET(
     console.log("📡 Cookies present:", !!cookieString);
     console.log("📡 Cookie string length:", cookieString.length);
 
-    const backendUrl = "http://backend:5000/api";
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${backendUrl}/profile/${username}`;
     console.log("📡 Fetching from backend:", url);
 

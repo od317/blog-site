@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { api } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
+import { useLikeRealtime } from "@/lib/hooks/Likes/useLikeRealtime";
 
 interface PostLikeStatusProps {
   postId: string;
@@ -15,7 +16,7 @@ export function PostLikeStatus({
   initialLikeCount,
 }: PostLikeStatusProps) {
   const router = useRouter();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
   const [hasLiked, setHasLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,6 +57,44 @@ export function PostLikeStatus({
 
     fetchLikeStatus();
   }, [postId, isAuthenticated, isAuthLoading]);
+
+  // Handle real-time like updates
+  const handleLikeUpdate = useCallback(
+    (
+      updatedPostId: string,
+      newLikeCount: number,
+      action: string,
+      shouldUpdateUserStatus: boolean,
+    ) => {
+      if (updatedPostId !== postId) return;
+
+      console.log("📡 Real-time like update received:", {
+        updatedPostId,
+        newLikeCount,
+        action,
+        shouldUpdateUserStatus,
+        currentHasLiked: hasLiked,
+      });
+
+      // Update like count
+      setLikeCount(newLikeCount);
+
+      // Only update user's like status if this event is for the current user
+      if (shouldUpdateUserStatus) {
+        const newHasLiked = action === "liked";
+        console.log("📡 Updating user like status to:", newHasLiked);
+        setHasLiked(newHasLiked);
+      }
+    },
+    [postId, hasLiked],
+  );
+
+  // Set up real-time listener
+  useLikeRealtime({
+    postId,
+    onLikeUpdated: handleLikeUpdate,
+    currentUserId: user?.id,
+  });
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -102,7 +141,7 @@ export function PostLikeStatus({
     );
   }
 
-  // Not authenticated - show disabled button
+  // Not authenticated - show login button
   if (!isAuthenticated) {
     return (
       <button

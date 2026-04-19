@@ -7,8 +7,7 @@ import { Post } from "@/types/Post";
 async function getPost(id: string): Promise<Post | null> {
   try {
     const baseUrl =
-      
-      "http://backend:5000/api";
+      process.env.NEXT_PUBLIC_API_URL || "http://backend:5000/api";
     const url = `${baseUrl}/posts/${id}`;
 
     // No cookies needed - only public data

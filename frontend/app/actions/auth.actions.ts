@@ -10,14 +10,14 @@ export async function setAuthTokens(accessToken: string, refreshToken: string) {
   cookieStore.set("accessToken", accessToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: "none",
     maxAge: 15 * 60, // 15 minutes
   });
 
   cookieStore.set("refreshToken", refreshToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: "none",
     maxAge: 7 * 24 * 60 * 60, // 7 days
   });
 

@@ -5,6 +5,7 @@ const postController = require("../controllers/post.controller");
 const commentController = require("../controllers/comment.controller");
 const likeController = require("../controllers/like.controller");
 const { uploadPostImage } = require("../middleware/upload");
+router.use(express.json());
 
 // ========== IMPORTANT: Apply auth middleware FIRST ==========
 // This will set req.userId for ALL routes, even public ones

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middleware/auth");
 const likeController = require("../controllers/like.controller");
+router.use(express.json());
 
 // All like routes require authentication
 router.use(authMiddleware);

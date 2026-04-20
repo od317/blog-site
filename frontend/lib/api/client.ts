@@ -243,6 +243,7 @@ export class ApiClient {
   async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, {
       method: "GET",
+      credentials: "include",
       ...options,
     });
   }
@@ -253,9 +254,24 @@ export class ApiClient {
     options?: RequestOptions,
   ): Promise<T> {
     console.log("Sending post data:", data);
+
+    // Check if data is FormData
+    const isFormData = data instanceof FormData;
+
+    const headers: Record<string, string> = {};
+
+    // Only set Content-Type for JSON, not for FormData
+    if (!isFormData) {
+      headers["Content-Type"] = "application/json";
+    }
+
     return this.request<T>(endpoint, {
       method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
+      headers: {
+        ...headers,
+        ...options?.headers,
+      },
+      body: isFormData ? data : data ? JSON.stringify(data) : undefined,
       ...options,
     });
   }

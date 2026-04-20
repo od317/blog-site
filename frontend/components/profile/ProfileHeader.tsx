@@ -1,204 +1,125 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Image from "next/image";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useState } from "react";
 import { UserProfile } from "@/types/Profile";
-import { Button } from "@/components/ui/Button";
-import { api } from "@/lib/api/client";
-import { useFollowRealtime } from "@/lib/hooks/useFollowRealtime";
+import { ProfileAvatar } from "./ProfileAvatar";
+import { ProfileInfo } from "./ProfileInfo";
+import { ProfileStats } from "./ProfileStats";
+import { ProfileActions } from "./ProfileActions";
+import { useProfileData } from "@/lib/hooks/useProfileData";
 
 interface ProfileHeaderProps {
   initialProfile: UserProfile;
 }
 
-// ✅ Match the actual API response format
-interface ProfileDataResponse {
-  isFollowing: boolean;
-  isOwnProfile: boolean;
-  followers_count: number; // Note: underscore, not camelCase
-  following_count?: number;
-  posts_count?: number;
-  total_likes_received?: number;
-}
-
 export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
-  const [isFollowing, setIsFollowing] = useState(initialProfile.isFollowing);
-  const [followersCount, setFollowersCount] = useState(
-    initialProfile.followers_count,
-  );
-  const [isOwnProfile, setIsOwnProfile] = useState(initialProfile.isOwnProfile);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(initialProfile.avatar_url);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Fetch fresh follow status using API client
-  useEffect(() => {
-    if (isAuthLoading) return;
-
-    const fetchFollowStatus = async () => {
-      console.log(
-        "🔍 Fetching dynamic profile data for:",
-        initialProfile.username,
-      );
-
-      try {
-        // Use API client which handles the proxy automatically
-        const response = await api.get<ProfileDataResponse>(
-          `/profile/${initialProfile.username}`,
-        );
-
-        console.log("🔍 API client response:", response);
-
-        // ✅ Use the correct field name from API response
-        setIsFollowing(response.isFollowing);
-        setFollowersCount(response.followers_count); // Note: followers_count
-        setIsOwnProfile(response.isOwnProfile);
-      } catch (error) {
-        console.error("Failed to fetch dynamic profile data:", error);
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-
-    fetchFollowStatus();
-  }, [initialProfile.username, isAuthLoading]);
-
-  // Set up real-time follow updates
-  useFollowRealtime({
+  const {
+    displayIsFollowing,
+    displayFollowersCount,
+    displayIsOwnProfile,
+    isLoading: isFollowLoading,
+    handleFollowToggle,
+  } = useProfileData({
+    username: initialProfile.username,
     profileUserId: initialProfile.id,
-    onFollowersCountUpdate: (newCount: number, isFollowingState: boolean) => {
-      console.log(
-        "🔄 Real-time: Updating followers count to:",
-        newCount,
-        "isFollowing:",
-        isFollowingState,
-      );
-      setFollowersCount(newCount);
-      setIsFollowing(isFollowingState);
-    },
-    currentUserId: user?.id,
+    initialIsFollowing: initialProfile.isFollowing,
+    initialFollowersCount: initialProfile.followers_count,
+    initialIsOwnProfile: initialProfile.isOwnProfile,
   });
 
-  const handleFollowToggle = async () => {
-    if (!isAuthenticated) {
-      window.location.href = `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`;
-      return;
-    }
+  const handleAvatarUpload = async (file: File) => {
+    setIsUploading(true);
 
-    setIsLoading(true);
-
-    // Optimistic update
-    const newIsFollowing = !isFollowing;
-    const newFollowersCount = newIsFollowing
-      ? followersCount + 1
-      : followersCount - 1;
-
-    setIsFollowing(newIsFollowing);
-    setFollowersCount(newFollowersCount);
+    const formData = new FormData();
+    formData.append("avatar", file);
 
     try {
-      if (newIsFollowing) {
-        await api.post(`/profile/${initialProfile.id}/follow`);
+      const response = await fetch("/api/proxy/profile/avatar", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      const data = await response.json();
+      console.log(data);
+      if (response.ok) {
+        setAvatarUrl(data.avatarUrl);
       } else {
-        await api.delete(`/profile/${initialProfile.id}/follow`);
+        setAvatarUrl(initialProfile.avatar_url);
+        alert(data.error || "Failed to upload avatar");
       }
     } catch (error) {
-      // Revert on error
-      setIsFollowing(!newIsFollowing);
-      setFollowersCount(newIsFollowing ? followersCount : followersCount + 1);
-      console.error("Follow action failed:", error);
+      console.error("Failed to upload avatar:", error);
+      setAvatarUrl(initialProfile.avatar_url);
+      alert("Failed to upload avatar. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsUploading(false);
     }
   };
 
-  // Use the fetched values if initialized, otherwise fallback to initial
-  const displayIsFollowing = isInitialized
-    ? isFollowing
-    : initialProfile.isFollowing;
-  const displayFollowersCount = isInitialized
-    ? followersCount
-    : initialProfile.followers_count;
-  const displayIsOwnProfile = isInitialized
-    ? isOwnProfile
-    : initialProfile.isOwnProfile;
+  const handleAvatarDelete = async () => {
+    setIsUploading(true);
+
+    // Don't set avatarUrl to null here - let the child component handle optimistic update
+    // The child component will clear its display immediately
+
+    try {
+      const response = await fetch("/api/proxy/profile/avatar", {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Revert will happen via avatarUrl prop not changing
+        alert(data.error || "Failed to delete avatar");
+      } else {
+        // ✅ Set avatarUrl to null in parent after successful deletion
+        setAvatarUrl(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete avatar:", error);
+      alert("Failed to delete avatar. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <div className="rounded-lg bg-white p-6 shadow-sm">
       <div className="flex flex-col items-center">
-        {/* Avatar */}
-        <div className="relative h-32 w-32 overflow-hidden rounded-full">
-          {initialProfile.avatar_url ? (
-            <Image
-              src={initialProfile.avatar_url}
-              alt={initialProfile.username}
-              fill
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-4xl font-bold text-white">
-              {initialProfile.username[0]?.toUpperCase()}
-            </div>
-          )}
-        </div>
+        <ProfileAvatar
+          username={initialProfile.username}
+          avatarUrl={avatarUrl}
+          isOwnProfile={displayIsOwnProfile}
+          onAvatarUpload={handleAvatarUpload}
+          onAvatarDelete={handleAvatarDelete}
+          isUploading={isUploading}
+        />
 
-        {/* Name */}
-        <h1 className="mt-4 text-2xl font-bold text-gray-900">
-          {initialProfile.full_name || initialProfile.username}
-        </h1>
+        <ProfileInfo
+          fullName={initialProfile.full_name}
+          username={initialProfile.username}
+          bio={initialProfile.bio}
+        />
 
-        {/* Username */}
-        <p className="text-gray-500">@{initialProfile.username}</p>
+        <ProfileStats
+          postsCount={initialProfile.posts_count}
+          followersCount={displayFollowersCount}
+          followingCount={initialProfile.following_count}
+          totalLikesReceived={initialProfile.total_likes_received}
+        />
 
-        {/* Bio */}
-        {initialProfile.bio && (
-          <p className="mt-2 text-center text-gray-700">{initialProfile.bio}</p>
-        )}
-
-        {/* Stats */}
-        <div className="mt-4 flex gap-6">
-          <div className="text-center">
-            <div className="text-xl font-bold text-gray-900">
-              {initialProfile.posts_count}
-            </div>
-            <div className="text-sm text-gray-500">Posts</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xl font-bold text-gray-900">
-              {displayFollowersCount}
-            </div>
-            <div className="text-sm text-gray-500">Followers</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xl font-bold text-gray-900">
-              {initialProfile.following_count}
-            </div>
-            <div className="text-sm text-gray-500">Following</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xl font-bold text-gray-900">
-              {initialProfile.total_likes_received}
-            </div>
-            <div className="text-sm text-gray-500">Likes</div>
-          </div>
-        </div>
-
-        {/* Follow/Edit Button */}
-        {displayIsOwnProfile ? (
-          <Button variant="outline" className="mt-4">
-            Edit Profile
-          </Button>
-        ) : (
-          <Button
-            onClick={handleFollowToggle}
-            isLoading={isLoading}
-            variant={displayIsFollowing ? "outline" : "primary"}
-            className="mt-4"
-          >
-            {displayIsFollowing ? "Following" : "Follow"}
-          </Button>
-        )}
+        <ProfileActions
+          isOwnProfile={displayIsOwnProfile}
+          isFollowing={displayIsFollowing}
+          isLoading={isFollowLoading}
+          onFollowToggle={handleFollowToggle}
+        />
       </div>
     </div>
   );

@@ -10,30 +10,21 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// ========== CORS CONFIGURATION - FIX FOR RENDER ==========
-// Allow all Render subdomains and localhost
+// ========== CORS CONFIGURATION ==========
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5000",
-  "https://blog-frontend-i0w1.onrender.com", // Your exact frontend URL
-  /\.onrender\.com$/, // Allow any onrender subdomain
+  "https://blog-frontend-i0w1.onrender.com",
+  /\.onrender\.com$/,
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    // Check if origin is allowed
+    if (!origin) return callback(null, true);
     const isAllowed = allowedOrigins.some((pattern) => {
-      if (pattern instanceof RegExp) {
-        return pattern.test(origin);
-      }
+      if (pattern instanceof RegExp) return pattern.test(origin);
       return pattern === origin;
     });
-
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -41,7 +32,7 @@ const corsOptions = {
       callback(new Error(`CORS policy does not allow ${origin}`));
     }
   },
-  credentials: true, // Important for cookies
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
@@ -53,20 +44,14 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// ========== COOKIE PARSER ==========
 app.use(cookieParser());
 
-// ========== BODY PARSERS ==========
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// ========== REMOVED GLOBAL BODY PARSERS ==========
+// No more app.use(express.json()) here
 
 // ========== REQUEST LOGGING ==========
 app.use((req, res, next) => {
   console.log(`\n📨 ${req.method} ${req.path}`);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log("Body:", req.body);
-  }
   next();
 });
 
@@ -90,7 +75,6 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-// Make io accessible to routes
 app.set("io", io);
 
 // ========== ROUTES ==========
@@ -101,6 +85,7 @@ const adminRoutes = require("./routes/admin.routes");
 const likeRoutes = require("./routes/likes.routes");
 const profileRoutes = require("./routes/profile.routes");
 const migrateRoutes = require("./routes/migrate.routes");
+
 app.use("/api/migrate", migrateRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -108,6 +93,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/likes", likeRoutes);
 app.use("/api/profile", profileRoutes);
+
 // ========== HEALTH CHECK ==========
 app.get("/api/health", (req, res) => {
   res.json({
@@ -131,16 +117,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-const activeReaders = new Map(); // postId -> Set of socket ids
+// ========== ACTIVE READERS TRACKING ==========
+const activeReaders = new Map();
 
+// ========== SOCKET.IO CONNECTION HANDLING ==========
 io.on("connection", (socket) => {
   console.log("🔌 New client connected:", socket.id);
   console.log("🔌 Total connected clients:", io.engine.clientsCount);
 
-  // Track which post this socket is currently viewing
   let currentPostId = null;
 
-  // Authenticate socket connection
   socket.on("authenticate", (token) => {
     try {
       const jwt = require("jsonwebtoken");
@@ -155,7 +141,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Subscribe to global feed
   socket.on("subscribe-feed", () => {
     if (socket.userId) {
       socket.join("global-feed");
@@ -164,7 +149,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Unsubscribe from global feed
   socket.on("unsubscribe-feed", () => {
     if (socket.userId) {
       socket.leave("global-feed");
@@ -172,10 +156,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ========== ACTIVE READERS TRACKING ==========
-  // Join a specific post room (for single post page)
   socket.on("join-post", (postId) => {
-    // Leave previous post room if any
     if (currentPostId) {
       const previousReaders = activeReaders.get(currentPostId);
       if (previousReaders) {
@@ -185,8 +166,6 @@ io.on("connection", (socket) => {
         }
       }
       socket.leave(`post-${currentPostId}`);
-
-      // Notify others in the previous post that reader count decreased
       const newCount = previousReaders?.size || 0;
       io.to(`post-${currentPostId}`).emit("readers-count-updated", {
         postId: currentPostId,
@@ -194,11 +173,9 @@ io.on("connection", (socket) => {
       });
     }
 
-    // Join new post room
     currentPostId = postId;
     socket.join(`post-${postId}`);
 
-    // Add to active readers tracking
     if (!activeReaders.has(postId)) {
       activeReaders.set(postId, new Set());
     }
@@ -209,7 +186,6 @@ io.on("connection", (socket) => {
       `📖 User joined post ${postId}, active readers: ${readerCount}`,
     );
 
-    // Notify all users in the post about the new reader count
     io.to(`post-${postId}`).emit("readers-count-updated", {
       postId,
       count: readerCount,
@@ -218,29 +194,23 @@ io.on("connection", (socket) => {
     socket.emit("post-joined", { postId, readerCount });
   });
 
-  // Leave a specific post room
   socket.on("leave-post", (postId) => {
     if (currentPostId === postId) {
       const readers = activeReaders.get(postId);
       if (readers) {
         readers.delete(socket.id);
         const readerCount = readers.size;
-
         if (readerCount === 0) {
           activeReaders.delete(postId);
         }
-
         console.log(
           `📖 User left post ${postId}, active readers: ${readerCount}`,
         );
-
-        // Notify remaining users about the updated count
         io.to(`post-${postId}`).emit("readers-count-updated", {
           postId,
           count: readerCount,
         });
       }
-
       socket.leave(`post-${postId}`);
       currentPostId = null;
     }
@@ -264,19 +234,15 @@ io.on("connection", (socket) => {
     console.log(`📖 Socket left profile room: ${room}`);
   });
 
-  // Handle disconnection
   socket.on("disconnect", () => {
     if (currentPostId) {
       const readers = activeReaders.get(currentPostId);
       if (readers) {
         readers.delete(socket.id);
         const readerCount = readers.size;
-
         if (readerCount === 0) {
           activeReaders.delete(currentPostId);
         }
-
-        // Notify remaining users
         io.to(`post-${currentPostId}`).emit("readers-count-updated", {
           postId: currentPostId,
           count: readerCount,

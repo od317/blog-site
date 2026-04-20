@@ -3,6 +3,7 @@ const router = express.Router();
 const { body } = require("express-validator");
 const authController = require("../controllers/auth.controller");
 const authMiddleware = require("../middleware/auth");
+router.use(express.json());
 
 // Validation rules (keep existing)
 const registerValidation = [

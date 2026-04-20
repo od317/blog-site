@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { CommentEditForm } from "./CommentEditForm";
 import type { Comment } from "@/types/Post";
@@ -57,9 +58,21 @@ export function CommentItem({
     <div
       className={`flex gap-3 border-b pb-3 ${isPending ? "opacity-60" : ""}`}
     >
-      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs text-white">
-        {comment.username?.[0]?.toUpperCase() || "?"}
-      </div>
+      {/* Avatar with fallback */}
+      {comment.avatar_url ? (
+        <div className="relative h-8 w-8 flex-shrink-0 overflow-hidden rounded-full">
+          <Image
+            src={comment.avatar_url}
+            alt={comment.username}
+            fill
+            className="object-cover"
+          />
+        </div>
+      ) : (
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs text-white">
+          {comment.username?.[0]?.toUpperCase() || "?"}
+        </div>
+      )}
 
       <div className="flex-1">
         <div className="flex flex-wrap items-center justify-between gap-2">

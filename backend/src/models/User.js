@@ -233,6 +233,9 @@ class User {
       p.image_url,
       p.created_at,
       p.updated_at,
+      u.username,
+      u.full_name,
+      u.avatar_url,
       COUNT(DISTINCT l.id) as like_count,
       COUNT(DISTINCT c.id) as comment_count,
       EXISTS(
@@ -240,10 +243,11 @@ class User {
         WHERE l2.post_id = p.id AND l2.user_id = $3
       ) as user_has_liked
     FROM posts p
+    JOIN users u ON p.user_id = u.id
     LEFT JOIN likes l ON p.id = l.post_id
     LEFT JOIN comments c ON p.id = c.post_id
     WHERE p.user_id = $1
-    GROUP BY p.id
+    GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
     ORDER BY p.created_at DESC
     LIMIT $2 OFFSET $4
   `;
@@ -257,6 +261,17 @@ class User {
     const query = `SELECT COUNT(*) as count FROM posts WHERE user_id = $1`;
     const result = await pool.query(query, [userId]);
     return parseInt(result.rows[0].count);
+  }
+
+  static async updateAvatar(userId, avatarUrl) {
+    const query = `
+    UPDATE users 
+    SET avatar_url = $1, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $2
+    RETURNING id, username, email, avatar_url, full_name, bio
+  `;
+    const result = await pool.query(query, [avatarUrl, userId]);
+    return result.rows[0];
   }
 }
 

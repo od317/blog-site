@@ -179,11 +179,28 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
         {/* Author info */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-white">
-              {post.username?.[0]?.toUpperCase()}
-            </div>
+            {/* Avatar - use post.avatar_url if available, otherwise show fallback */}
+            {post.avatar_url ? (
+              <div className="relative h-10 w-10 overflow-hidden rounded-full">
+                <Image
+                  src={post.avatar_url}
+                  alt={post.username}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
+                {post.username?.[0]?.toUpperCase()}
+              </div>
+            )}
             <div>
-              <p className="font-semibold">{post.username}</p>
+              <Link
+                href={`/${post.username}`}
+                className="font-semibold hover:text-blue-600 transition-colors"
+              >
+                {post.username}
+              </Link>
               <p className="text-xs text-gray-500" suppressHydrationWarning>
                 {formatDate(post.created_at)}
               </p>

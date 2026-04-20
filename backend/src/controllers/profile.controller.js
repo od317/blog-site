@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const { calculateReadingTime } = require("../utils/readingTime");
 const pool = require("../config/database");
+const cloudinary = require("../config/cloudinary");
 
 // Get user profile with stats
 exports.getProfile = async (req, res) => {
@@ -279,5 +280,62 @@ exports.unfollowUser = async (req, res) => {
   } catch (error) {
     console.error("Unfollow user error:", error);
     res.status(500).json({ error: "Failed to unfollow user" });
+  }
+};
+
+exports.uploadAvatar = async (req, res) => {
+  try {
+    console.log("📸 Upload avatar called");
+    console.log("req.file:", req.file);
+    console.log("req.body:", req.body);
+    console.log("req.headers.content-type:", req.headers["content-type"]);
+
+    if (!req.file) {
+      console.log("❌ No file in request");
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const avatarUrl = req.file.path;
+
+    // Delete old avatar from Cloudinary if exists
+    const user = await User.findById(req.userId);
+    if (user.avatar_url) {
+      const publicId = user.avatar_url.split("/").pop().split(".")[0];
+      await cloudinary.uploader.destroy(`blog/avatars/${publicId}`);
+    }
+
+    // Update user in database
+    const updatedUser = await User.updateAvatar(req.userId, avatarUrl);
+
+    res.json({
+      message: "Avatar uploaded successfully",
+      user: updatedUser,
+      avatarUrl: avatarUrl,
+    });
+  } catch (error) {
+    console.error("Upload avatar error:", error);
+    res.status(500).json({ error: "Failed to upload avatar" });
+  }
+};
+
+// Delete avatar
+exports.deleteAvatar = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+
+    if (user.avatar_url) {
+      const publicId = user.avatar_url.split("/").pop().split(".")[0];
+      await cloudinary.uploader.destroy(`blog/avatars/${publicId}`);
+    }
+
+    await User.updateAvatar(req.userId, null);
+
+    res.json({ message: "Avatar deleted successfully" });
+  } catch (error) {
+    console.error("Delete avatar error:", error);
+    res.status(500).json({ error: "Failed to delete avatar" });
   }
 };

@@ -100,6 +100,8 @@ const postRoutes = require("./routes/posts.routes");
 const adminRoutes = require("./routes/admin.routes");
 const likeRoutes = require("./routes/likes.routes");
 const profileRoutes = require("./routes/profile.routes");
+const migrateRoutes = require("./routes/migrate.routes");
+app.use("/api/migrate", migrateRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
@@ -260,7 +262,7 @@ io.on("connection", (socket) => {
       socket.currentProfileRoom = null;
     }
     console.log(`📖 Socket left profile room: ${room}`);
-});
+  });
 
   // Handle disconnection
   socket.on("disconnect", () => {

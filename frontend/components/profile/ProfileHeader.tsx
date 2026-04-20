@@ -12,6 +12,16 @@ interface ProfileHeaderProps {
   initialProfile: UserProfile;
 }
 
+// ✅ Match the actual API response format
+interface ProfileDataResponse {
+  isFollowing: boolean;
+  isOwnProfile: boolean;
+  followers_count: number; // Note: underscore, not camelCase
+  following_count?: number;
+  posts_count?: number;
+  total_likes_received?: number;
+}
+
 export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
   const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
   const [isFollowing, setIsFollowing] = useState(initialProfile.isFollowing);
@@ -22,7 +32,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Fetch fresh follow status using API route
+  // Fetch fresh follow status using API client
   useEffect(() => {
     if (isAuthLoading) return;
 
@@ -33,32 +43,17 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
       );
 
       try {
-        // Use Next.js API route instead of direct backend call
-        const response = await fetch(
-          `/api/profile/${initialProfile.username}`,
-          {
-            credentials: "include",
-          },
+        // Use API client which handles the proxy automatically
+        const response = await api.get<ProfileDataResponse>(
+          `/profile/${initialProfile.username}`,
         );
 
-        console.log("🔍 API route response status:", response.status);
+        console.log("🔍 API client response:", response);
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log("🔍 Dynamic profile data received:", {
-            isFollowing: data.isFollowing,
-            isOwnProfile: data.isOwnProfile,
-            followersCount: data.followersCount,
-          });
-          setIsFollowing(data.isFollowing);
-          setFollowersCount(data.followersCount);
-          setIsOwnProfile(data.isOwnProfile);
-        } else {
-          console.error(
-            "Failed to fetch dynamic profile data:",
-            response.status,
-          );
-        }
+        // ✅ Use the correct field name from API response
+        setIsFollowing(response.isFollowing);
+        setFollowersCount(response.followers_count); // Note: followers_count
+        setIsOwnProfile(response.isOwnProfile);
       } catch (error) {
         console.error("Failed to fetch dynamic profile data:", error);
       } finally {

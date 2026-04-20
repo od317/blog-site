@@ -192,6 +192,7 @@ class User {
     await pool.query(query, [isVerified, userId]);
   }
 
+  // Get full user profile with stats
   static async getProfile(userId) {
     const query = `
     SELECT 
@@ -229,7 +230,7 @@ class User {
       p.id,
       p.title,
       p.content,
-      LEFT(p.content, 200) as excerpt,
+      p.image_url,
       p.created_at,
       p.updated_at,
       COUNT(DISTINCT l.id) as like_count,

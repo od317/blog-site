@@ -13,6 +13,7 @@ import { getSocket } from "@/lib/socket/client";
 import type { Post, Comment } from "@/types/Post";
 import { CommentSection } from "../comments/CommentSection";
 import { PostLikeStatus } from "./PostLikeStatus";
+import Image from "next/image";
 
 interface PostDetailsProps {
   post: Post;
@@ -207,6 +208,18 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
             </div>
           )}
         </div>
+
+        {/* Featured Image */}
+        {post.image_url && (
+          <div className="relative mb-6 h-96 w-full overflow-hidden rounded-lg">
+            <Image
+              src={post.image_url}
+              alt={post.title}
+              fill
+              className="object-cover"
+            />
+          </div>
+        )}
 
         <h1 className="mb-4 text-2xl font-bold">{post.title}</h1>
 

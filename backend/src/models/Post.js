@@ -1,35 +1,49 @@
 const pool = require("../config/database");
 
 class Post {
-  // Create posts table
+  // Update the createTable method
   static async createTable() {
     const query = `
-      CREATE TABLE IF NOT EXISTS posts (
-        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        content TEXT NOT NULL,
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
-      CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
-    `;
+    CREATE TABLE IF NOT EXISTS posts (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      image_url TEXT,
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
+  `;
 
     await pool.query(query);
     console.log("✅ Posts table ready");
   }
 
-  // Create a new post
+  // Update create method
   static async create(postData) {
-    const { title, content, user_id } = postData;
+    const { title, content, image_url, user_id } = postData;
     const query = `
-      INSERT INTO posts (title, content, user_id)
-      VALUES ($1, $2, $3)
-      RETURNING id, title, content, user_id, created_at, updated_at
-    `;
-    const values = [title, content, user_id];
+    INSERT INTO posts (title, content, image_url, user_id)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, title, content, image_url, user_id, created_at, updated_at
+  `;
+    const values = [title, content, image_url, user_id];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  }
+
+  // Update update method
+  static async update(id, userId, { title, content, image_url }) {
+    const query = `
+    UPDATE posts 
+    SET title = $1, content = $2, image_url = $3, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $4 AND user_id = $5
+    RETURNING id, title, content, image_url, user_id, created_at, updated_at
+  `;
+    const values = [title, content, image_url, id, userId];
     const result = await pool.query(query, values);
     return result.rows[0];
   }
@@ -43,12 +57,16 @@ class Post {
   }
 
   static async findAll(limit = 20, offset = 0, currentUserId = null) {
-    console.log("📊 Post.findAll - currentUserId:", currentUserId);
-
     if (!currentUserId) {
       const query = `
       SELECT 
-        p.*,
+        p.id,
+        p.title,
+        p.content,
+        p.image_url,
+        p.user_id,
+        p.created_at,
+        p.updated_at,
         u.username,
         u.full_name,
         u.avatar_url,
@@ -68,22 +86,24 @@ class Post {
       return result.rows;
     }
 
-    // User is logged in - check their likes
     const query = `
     SELECT 
-      p.*,
+      p.id,
+      p.title,
+      p.content,
+      p.image_url,
+      p.user_id,
+      p.created_at,
+      p.updated_at,
       u.username,
       u.full_name,
       u.avatar_url,
       COUNT(DISTINCT l.id) as like_count,
       COUNT(DISTINCT c.id) as comment_count,
-      CASE 
-        WHEN EXISTS(
-          SELECT 1 FROM likes l2 
-          WHERE l2.post_id = p.id AND l2.user_id = $3::uuid
-        ) THEN true
-        ELSE false
-      END as user_has_liked
+      EXISTS(
+        SELECT 1 FROM likes l2 
+        WHERE l2.post_id = p.id AND l2.user_id = $3::uuid
+      ) as user_has_liked
     FROM posts p
     JOIN users u ON p.user_id = u.id
     LEFT JOIN likes l ON p.id = l.post_id
@@ -95,14 +115,8 @@ class Post {
     const values = [limit, offset, currentUserId];
     const result = await pool.query(query, values);
 
-    // Debug: log first post's like status
     if (result.rows.length > 0) {
-      console.log(
-        "📊 First post user_has_liked:",
-        result.rows[0].user_has_liked,
-      );
-      console.log("📊 First post ID:", result.rows[0].id);
-      console.log("📊 Current user ID:", currentUserId);
+      console.log("📊 First post has image:", !!result.rows[0].image_url);
     }
 
     return result.rows;
@@ -121,6 +135,7 @@ class Post {
         p.id,
         p.title,
         p.content,
+        p.image_url,
         p.user_id,
         p.created_at,
         p.updated_at,
@@ -149,6 +164,7 @@ class Post {
       p.id,
       p.title,
       p.content,
+      p.image_url,
       p.user_id,
       p.created_at,
       p.updated_at,
@@ -177,6 +193,7 @@ class Post {
         result.rows[0].user_has_liked,
       );
       console.log("🔍 Query result - like_count:", result.rows[0].like_count);
+      console.log("🔍 Query result - image_url:", result.rows[0].image_url);
     } else {
       console.log("🔍 No post found");
     }
@@ -194,7 +211,13 @@ class Post {
     if (!currentUserId) {
       const query = `
       SELECT 
-        p.*,
+        p.id,
+        p.title,
+        p.content,
+        p.image_url,
+        p.user_id,
+        p.created_at,
+        p.updated_at,
         u.username,
         u.full_name,
         u.avatar_url,
@@ -206,7 +229,7 @@ class Post {
       LEFT JOIN likes l ON p.id = l.post_id
       LEFT JOIN comments c ON p.id = c.post_id
       WHERE p.user_id = $1
-      GROUP BY p.id, u.id
+      GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
       ORDER BY p.created_at DESC
       LIMIT $2 OFFSET $3
     `;
@@ -217,7 +240,13 @@ class Post {
 
     const query = `
     SELECT 
-      p.*,
+      p.id,
+      p.title,
+      p.content,
+      p.image_url,
+      p.user_id,
+      p.created_at,
+      p.updated_at,
       u.username,
       u.full_name,
       u.avatar_url,
@@ -225,33 +254,20 @@ class Post {
       COUNT(DISTINCT c.id) as comment_count,
       EXISTS(
         SELECT 1 FROM likes l2 
-        WHERE l2.post_id = p.id AND l2.user_id = $3
+        WHERE l2.post_id = p.id AND l2.user_id = $3::uuid
       ) as user_has_liked
     FROM posts p
     JOIN users u ON p.user_id = u.id
     LEFT JOIN likes l ON p.id = l.post_id
     LEFT JOIN comments c ON p.id = c.post_id
     WHERE p.user_id = $1
-    GROUP BY p.id, u.id
+    GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
     ORDER BY p.created_at DESC
     LIMIT $2 OFFSET $4
   `;
     const values = [userId, limit, currentUserId, offset];
     const result = await pool.query(query, values);
     return result.rows;
-  }
-
-  // Update post
-  static async update(id, userId, { title, content }) {
-    const query = `
-      UPDATE posts 
-      SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3 AND user_id = $4
-      RETURNING id, title, content, user_id, created_at, updated_at
-    `;
-    const values = [title, content, id, userId];
-    const result = await pool.query(query, values);
-    return result.rows[0];
   }
 
   // Delete post

@@ -4,6 +4,7 @@ const authMiddleware = require("../middleware/auth");
 const postController = require("../controllers/post.controller");
 const commentController = require("../controllers/comment.controller");
 const likeController = require("../controllers/like.controller");
+const { uploadPostImage } = require("../middleware/upload");
 
 // ========== IMPORTANT: Apply auth middleware FIRST ==========
 // This will set req.userId for ALL routes, even public ones
@@ -17,7 +18,7 @@ router.get("/:id", postController.getPost);
 router.get("/:id/active-readers", postController.getActiveReaders);
 
 // Protected write routes (auth required)
-router.post("/", postController.createPost);
+router.post("/", uploadPostImage.single("image"), postController.createPost);
 router.put("/:id", postController.updatePost);
 router.delete("/:id", postController.deletePost);
 
@@ -27,7 +28,7 @@ router.get("/:postId/comments", commentController.getPostComments);
 
 // Protected write routes (auth required)
 router.post("/:postId/comments", commentController.addComment);
-router.put("/comments/:id", commentController.updateComment); // 
+router.put("/comments/:id", commentController.updateComment); //
 router.delete("/comments/:id", commentController.deleteComment);
 
 module.exports = router;

@@ -11,8 +11,7 @@ import { ProfilePageProps, UserProfile } from "@/types/Profile";
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
     // Build URL
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL ||  "http://backend:5000/api";
+    const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}`;
 
     // Fetch from backend API with cookies (same as post page)

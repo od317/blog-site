@@ -32,7 +32,7 @@ exports.getPost = async (req, res) => {
   try {
     const { id } = req.params;
     const post = await Post.findById(id, req.userId || null);
-    
+
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
@@ -56,19 +56,13 @@ exports.getPost = async (req, res) => {
 
 // Create post - REQUIRES AUTH
 exports.createPost = async (req, res) => {
-  // Check authentication first
-  if (!req.userId) {
-    return res.status(401).json({
-      error: "Authentication required",
-      message: "You must be logged in to create a post",
-    });
-  }
-
   try {
     console.log("Create post request body:", req.body);
+    console.log("Create post file:", req.file);
     console.log("User ID:", req.userId);
 
     const { title, content } = req.body;
+    const image_url = req.file ? req.file.path : null;
 
     if (!title || !content) {
       return res.status(400).json({ error: "Title and content are required" });
@@ -77,6 +71,7 @@ exports.createPost = async (req, res) => {
     const post = await Post.create({
       title: title.trim(),
       content: content.trim(),
+      image_url,
       user_id: req.userId,
     });
 
@@ -91,7 +86,9 @@ exports.createPost = async (req, res) => {
     io.emit("new-post", postWithReadingTime);
     io.emit("feed:new-post", postWithReadingTime);
 
-    console.log(`📢 New post created by ${req.userId}, emitted to all clients`);
+    console.log(
+      `📢 New post created by ${req.userId}, image: ${image_url ? "yes" : "no"}`,
+    );
 
     res.status(201).json(postWithReadingTime);
   } catch (error) {

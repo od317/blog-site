@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ProfilePost, PaginationData, PostsResponse } from "@/types/Post";
 import { LikeButton } from "@/components/post/LikeButton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -16,7 +17,7 @@ interface ProfilePostsProps {
 const POSTS_PER_PAGE = 10;
 
 // ============================================
-// SIMPLE DATE FORMATTER (no external packages)
+// SIMPLE DATE FORMATTER
 // ============================================
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -43,7 +44,7 @@ function formatRelativeTime(dateString: string): string {
 }
 
 // ============================================
-// SIMPLE INTERSECTION OBSERVER (no external packages)
+// INTERSECTION OBSERVER
 // ============================================
 function useIntersectionObserver(
   callback: () => void,
@@ -108,7 +109,6 @@ export function ProfilePosts({
     [username],
   );
 
-  // Load more posts when reaching the end
   const loadMore = useCallback(async () => {
     if (isLoading || !pagination?.hasMore) return;
 
@@ -137,7 +137,6 @@ export function ProfilePosts({
     }
   }, [fetchPosts, initialPosts.length, pagination]);
 
-  // Set up intersection observer for infinite scroll
   useIntersectionObserver(loadMore, pagination?.hasMore || false, isLoading);
 
   if (isInitialLoad) {
@@ -172,14 +171,27 @@ export function ProfilePosts({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-4">
-        {posts.map((post) => (
-          <article
-            key={post.id}
-            className="group rounded-lg bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
-          >
-            <Link href={`/posts/${post.id}`} className="block">
-              <h2 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+      {posts.map((post) => (
+        <article
+          key={post.id}
+          className="group overflow-hidden rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md"
+        >
+          <Link href={`/posts/${post.id}`} className="block">
+            {/* Featured Image */}
+            {post.image_url && (
+              <div className="relative h-56 w-full overflow-hidden bg-gray-100">
+                <Image
+                  src={post.image_url}
+                  alt={post.title}
+                  fill
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+              </div>
+            )}
+
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
                 {post.title}
               </h2>
 
@@ -191,7 +203,7 @@ export function ProfilePosts({
 
               <p className="mt-3 text-gray-600 line-clamp-3">{post.excerpt}</p>
 
-              <div className="mt-4 flex items-center gap-4">
+              <div className="mt-4 flex items-center gap-4 pt-3 border-t border-gray-100">
                 <LikeButton
                   postId={post.id}
                   initialLikeCount={post.like_count}
@@ -214,10 +226,10 @@ export function ProfilePosts({
                   <span className="text-sm">{post.comment_count}</span>
                 </button>
               </div>
-            </Link>
-          </article>
-        ))}
-      </div>
+            </div>
+          </Link>
+        </article>
+      ))}
 
       {isLoading && (
         <div className="flex justify-center py-4">

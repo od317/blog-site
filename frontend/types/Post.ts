@@ -13,6 +13,7 @@ export interface Post {
   id: string;
   title: string;
   content: string;
+  image_url?: string | null; // Add this
   user_id: string;
   username: string;
   full_name: string | null;
@@ -27,13 +28,11 @@ export interface Post {
   error?: string;
 }
 
-// ============================================
-// PROFILE POST TYPES (for list view)
-// ============================================
 export interface ProfilePost {
   id: string;
   title: string;
   excerpt: string;
+  image_url?: string | null; // Add this
   like_count: number;
   comment_count: number;
   user_has_liked: boolean;

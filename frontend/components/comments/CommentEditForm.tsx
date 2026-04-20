@@ -20,6 +20,7 @@ export function CommentEditForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
+    console.log("✏️ CommentEditForm saving:", content.trim());
     await onSave(content.trim());
   };
 
@@ -39,7 +40,7 @@ export function CommentEditForm({
           disabled={isUpdating || !content.trim()}
           className="text-xs text-green-600 hover:text-green-700 disabled:opacity-50"
         >
-          Save
+          {isUpdating ? "Saving..." : "Save"}
         </button>
         <button
           type="button"

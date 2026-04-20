@@ -36,5 +36,7 @@ router.get("/:postId/comments", commentController.getPostComments);
 router.post("/:postId/comments", commentController.addComment);
 router.put("/comments/:id", commentController.updateComment); //
 router.delete("/comments/:id", commentController.deleteComment);
+router.get("/comments/:commentId/replies", commentController.getCommentReplies);
+router.get("/:postId/comments/nested", commentController.getNestedComments);
 
 module.exports = router;

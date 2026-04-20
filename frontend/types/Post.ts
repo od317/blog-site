@@ -1,12 +1,16 @@
 export interface Comment {
   id: string;
-  post_id: string;
   content: string;
+  post_id: string;
   user_id: string;
   username: string;
   full_name: string | null;
   avatar_url: string | null;
+  parent_id: string | null;
+  reply_count: number;
+  replies?: Comment[];
   created_at: string;
+  updated_at?: string;
 }
 
 export interface Post {

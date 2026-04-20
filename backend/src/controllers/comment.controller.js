@@ -21,9 +21,28 @@ exports.getPostComments = async (req, res) => {
   }
 };
 
-// Add comment - REQUIRES AUTH
+// Get replies for a comment - PUBLIC
+exports.getCommentReplies = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { limit = 20, offset = 0 } = req.query;
+
+    const replies = await Comment.getReplies(
+      commentId,
+      parseInt(limit),
+      parseInt(offset),
+    );
+    const replyCount = await Comment.getReplyCount(commentId);
+
+    res.json({ replies, replyCount });
+  } catch (error) {
+    console.error("Get replies error:", error);
+    res.status(500).json({ error: "Failed to fetch replies" });
+  }
+};
+
+// Add comment or reply - REQUIRES AUTH
 exports.addComment = async (req, res) => {
-  // Check authentication first
   if (!req.userId) {
     return res.status(401).json({
       error: "Authentication required",
@@ -33,7 +52,7 @@ exports.addComment = async (req, res) => {
 
   try {
     const { postId } = req.params;
-    const { content } = req.body;
+    const { content, parentId } = req.body;
 
     if (!content || content.trim().length === 0) {
       return res.status(400).json({ error: "Comment content is required" });
@@ -44,21 +63,46 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ error: "Post not found" });
     }
 
+    // If parentId is provided, verify the parent comment exists
+    if (parentId) {
+      const parentComment = await Comment.findById(parentId);
+      if (!parentComment) {
+        return res.status(404).json({ error: "Parent comment not found" });
+      }
+    }
+
     const comment = await Comment.create({
       content: content.trim(),
       post_id: postId,
       user_id: req.userId,
+      parent_id: parentId || null,
     });
 
     const fullComment = await Comment.findById(comment.id);
     const commentCount = await Comment.getCount(postId);
 
     const io = req.app.get("io");
-    io.to(`post-${postId}`).emit("new-comment", {
+
+    // Emit to post room for new comment or reply
+    io.to(`post-${postId}`).emit(parentId ? "new-reply" : "new-comment", {
       postId,
       comment: fullComment,
       commentCount,
+      parentId,
     });
+
+    // If it's a reply, also notify the parent comment author
+    if (parentId) {
+      const parentComment = await Comment.findById(parentId);
+      if (parentComment && parentComment.user_id !== req.userId) {
+        io.to(`user:${parentComment.user_id}`).emit("notification", {
+          type: "reply",
+          comment: fullComment,
+          parentComment,
+          postId,
+        });
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -71,7 +115,7 @@ exports.addComment = async (req, res) => {
   }
 };
 
-// Delete comment - REQUIRES AUTH
+// Delete comment - REQUIRES AUTH (with cascade handling)
 exports.deleteComment = async (req, res) => {
   if (!req.userId) {
     return res.status(401).json({
@@ -90,6 +134,7 @@ exports.deleteComment = async (req, res) => {
     }
 
     const postId = comment.post_id;
+    const parentId = comment.parent_id;
 
     const deleted = await Comment.delete(id, userId);
 
@@ -106,6 +151,7 @@ exports.deleteComment = async (req, res) => {
       commentId: id,
       postId,
       commentCount,
+      parentId,
     });
 
     res.json({ success: true, commentCount });
@@ -150,17 +196,52 @@ exports.updateComment = async (req, res) => {
       postId: fullComment.post_id,
       commentCount,
     });
-    console.log(
-      `📢 Comment updated event emitted to post-${fullComment.post_id}`,
-    );
-    console.log("Event data:", {
-      comment: fullComment,
-      postId: fullComment.post_id,
-      commentCount,
-    });
+
     res.json({ success: true, comment: fullComment });
   } catch (error) {
     console.error("Update comment error:", error);
     res.status(500).json({ error: "Failed to update comment" });
+  }
+};
+
+exports.getNestedComments = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    // Get all comments for this post
+    const allComments = await Comment.findByPostWithReplies(
+      postId,
+      parseInt(limit),
+      parseInt(offset),
+    );
+
+    // Build nested structure
+    const commentMap = new Map();
+    const nestedComments = [];
+
+    // First, create a map of all comments
+    allComments.forEach((comment) => {
+      commentMap.set(comment.id, { ...comment, replies: [] });
+    });
+
+    // Then, build the tree
+    allComments.forEach((comment) => {
+      const commentWithReplies = commentMap.get(comment.id);
+      if (comment.parent_id && commentMap.has(comment.parent_id)) {
+        const parent = commentMap.get(comment.parent_id);
+        parent.replies.push(commentWithReplies);
+      } else if (!comment.parent_id) {
+        nestedComments.push(commentWithReplies);
+      }
+    });
+
+    res.json({
+      comments: nestedComments,
+      totalCount: allComments.length,
+    });
+  } catch (error) {
+    console.error("Get nested comments error:", error);
+    res.status(500).json({ error: "Failed to fetch comments" });
   }
 };

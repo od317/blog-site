@@ -14,18 +14,31 @@ interface CommentResponse {
 export async function addComment({
   postId,
   content,
+  parentId,
 }: {
   postId: string;
   content: string;
+  parentId?: string;
 }): Promise<CommentResponse> {
+  console.log("📝 addComment called:", { postId, content, parentId });
+
   try {
+    const body: { content: string; parentId?: string } = { content };
+    if (parentId) {
+      body.parentId = parentId;
+    }
+
+    console.log("📝 Request body:", body);
+
     const result = await authenticatedFetchJSON<CommentResponse>(
       `/posts/${postId}/comments`,
       {
         method: "POST",
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(body),
       },
     );
+
+    console.log("📝 Result from backend:", result);
 
     if (!result.success || !result.data) {
       return {
@@ -35,10 +48,11 @@ export async function addComment({
     }
 
     revalidatePath(`/posts/${postId}`);
+    console.log("📝 Revalidated path:", `/posts/${postId}`);
 
     return result.data;
   } catch (error) {
-    console.error("Add comment action error:", error);
+    console.error("📝 Add comment action error:", error);
     return {
       success: false,
       error:
@@ -51,6 +65,8 @@ export async function deleteComment(
   commentId: string,
   postId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  console.log("🗑️ deleteComment called:", { commentId, postId });
+
   try {
     const result = await authenticatedFetchJSON(
       `/posts/comments/${commentId}`,
@@ -58,6 +74,8 @@ export async function deleteComment(
         method: "DELETE",
       },
     );
+
+    console.log("🗑️ Result from backend:", result);
 
     if (!result.success) {
       return {
@@ -67,10 +85,11 @@ export async function deleteComment(
     }
 
     revalidatePath(`/posts/${postId}`);
+    console.log("🗑️ Revalidated path:", `/posts/${postId}`);
 
     return { success: true };
   } catch (error) {
-    console.error("Delete comment action error:", error);
+    console.error("🗑️ Delete comment action error:", error);
     return { success: false, error: "An unexpected error occurred" };
   }
 }
@@ -84,6 +103,8 @@ export async function updateComment({
   postId: string;
   content: string;
 }): Promise<CommentResponse> {
+  console.log("✏️ updateComment called:", { commentId, postId, content });
+
   try {
     const result = await authenticatedFetchJSON<Comment>(
       `/posts/comments/${commentId}`,
@@ -93,6 +114,8 @@ export async function updateComment({
       },
     );
 
+    console.log("✏️ Result from backend:", result);
+
     if (!result.success || !result.data) {
       return {
         success: false,
@@ -101,13 +124,14 @@ export async function updateComment({
     }
 
     revalidatePath(`/posts/${postId}`);
+    console.log("✏️ Revalidated path:", `/posts/${postId}`);
 
     return {
       success: true,
       comment: result.data,
     };
   } catch (error) {
-    console.error("Update comment action error:", error);
+    console.error("✏️ Update comment action error:", error);
     return {
       success: false,
       error:

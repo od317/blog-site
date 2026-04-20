@@ -20,7 +20,12 @@ router.get("/:id/active-readers", postController.getActiveReaders);
 
 // Protected write routes (auth required)
 router.post("/", uploadPostImage.single("image"), postController.createPost);
-router.put("/:id", postController.updatePost);
+router.put(
+  "/:id",
+  authMiddleware,
+  uploadPostImage.single("image"),
+  postController.updatePost,
+);
 router.delete("/:id", postController.deletePost);
 
 // ========== COMMENT ROUTES ==========

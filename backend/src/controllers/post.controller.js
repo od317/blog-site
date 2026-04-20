@@ -99,18 +99,39 @@ exports.createPost = async (req, res) => {
 
 // Update post - REQUIRES AUTH
 exports.updatePost = async (req, res) => {
-  if (!req.userId) {
-    return res.status(401).json({
-      error: "Authentication required",
-      message: "You must be logged in to update a post",
-    });
-  }
-
   try {
     const { id } = req.params;
-    const { title, content } = req.body;
 
-    const post = await Post.update(id, req.userId, { title, content });
+    // Get existing post to check current image
+    const existingPost = await Post.findById(id, req.userId);
+    if (!existingPost) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    // Prepare update data
+    let title = req.body.title;
+    let content = req.body.content;
+    let image_url = existingPost.image_url; // Keep existing image by default
+
+    // Handle different cases
+    if (req.file) {
+      // New image uploaded
+      image_url = req.file.path;
+    } else if (req.body.removeImage === "true") {
+      // Explicitly remove image
+      image_url = null;
+    }
+    // Otherwise, keep existing image (no change)
+
+    if (!title || !content) {
+      return res.status(400).json({ error: "Title and content are required" });
+    }
+
+    const post = await Post.update(id, req.userId, {
+      title: title.trim(),
+      content: content.trim(),
+      image_url: image_url,
+    });
 
     if (!post) {
       return res.status(404).json({ error: "Post not found or unauthorized" });

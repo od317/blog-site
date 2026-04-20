@@ -25,6 +25,7 @@ interface UpdatePostInput {
   id: string;
   title: string;
   content: string;
+  image_url: string | null | undefined;
 }
 
 interface UpdatePostResponse {

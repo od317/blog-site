@@ -12,7 +12,12 @@ interface NotificationStore {
   hasMore: boolean;
   offset: number;
   fetchNotifications: (reset?: boolean) => Promise<void>;
-  markPostAsRead: (postId: string, type: string) => Promise<void>;
+  markAsRead: (
+    notificationId: string,
+    type: string,
+    postId?: string | null,
+    actorId?: string,
+  ) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   addNotification: (notification: GroupedNotification) => void;
   incrementUnreadCount: () => void;
@@ -57,27 +62,34 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }
   },
 
-  markPostAsRead: async (postId: string, type?: string) => {
+  // ✅ Updated to handle follow notifications (which don't have post_id)
+  markAsRead: async (
+    notificationId: string,
+    type: string,
+    postId?: string | null,
+    actorId?: string,
+  ) => {
     try {
-      const url = type
-        ? `/notifications/posts/${postId}/read?type=${type}`
-        : `/notifications/posts/${postId}/read`;
+      let url: string;
+
+      if (type === "follow" && actorId) {
+        // For follow notifications, mark by actor_id
+        url = `/notifications/follow/${actorId}/read`;
+      } else if (postId) {
+        // For post-related notifications, mark by post_id and type
+        url = `/notifications/posts/${postId}/read?type=${type}`;
+      } else {
+        console.error("Cannot mark notification as read: missing identifier");
+        return;
+      }
+
       await api.put(url);
 
       set((state) => ({
         notifications: state.notifications.map((n) =>
-          n.post_id === postId && (!type || n.type === type)
-            ? { ...n, read: true }
-            : n,
+          n.notification_id === notificationId ? { ...n, read: true } : n,
         ),
-        unreadCount: Math.max(
-          0,
-          state.unreadCount -
-            state.notifications.filter(
-              (n) =>
-                n.post_id === postId && (!type || n.type === type) && !n.read,
-            ).length,
-        ),
+        unreadCount: Math.max(0, state.unreadCount - 1),
       }));
     } catch (error) {
       console.error("Failed to mark as read:", error);

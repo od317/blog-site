@@ -18,7 +18,7 @@ export function NotificationBell() {
     isLoading,
     hasMore,
     fetchNotifications,
-    markPostAsRead,
+    markAsRead,
     markAllAsRead,
   } = useNotificationStore();
 
@@ -60,63 +60,106 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ✅ Updated to handle follow notifications
   const handleNotificationClick = async (notification: GroupedNotification) => {
     if (!notification.read) {
-      // Pass the type to only mark that specific notification type as read
-      await markPostAsRead(notification.post_id, notification.type);
+      // For follow notifications, use the actor_id from the notification
+      const actorId =
+        notification.type === "follow" ? notification.actor_id : undefined;
+
+      await markAsRead(
+        notification.notification_id,
+        notification.type,
+        notification.post_id,
+        actorId,
+      );
     }
     setIsOpen(false);
   };
 
-  // ✅ Updated to handle all notification types
+  // Get the display names for the notification
+  const getDisplayNames = (notification: GroupedNotification): string => {
+    const { actor_count, latest_actor_username, actor_usernames } =
+      notification;
+    const otherCount = actor_count - 1;
+
+    if (actor_count === 1) {
+      return latest_actor_username;
+    }
+
+    if (actor_count === 2) {
+      const otherName = actor_usernames.find(
+        (name) => name !== latest_actor_username,
+      );
+      return `${latest_actor_username} and ${otherName || "1 other"}`;
+    }
+
+    return `${latest_actor_username} and ${otherCount} others`;
+  };
+
+  // Get the correct href for each notification type
+  const getNotificationHref = (notification: GroupedNotification): string => {
+    // For follow notifications, go to the follower's profile
+    if (notification.type === "follow") {
+      const followerUsername = notification.latest_actor_username;
+      return `/${followerUsername}`;
+    }
+
+    // For post-related notifications, go to the post
+    if (notification.post_id) {
+      return `/posts/${notification.post_id}`;
+    }
+
+    // Fallback
+    return "/";
+  };
+
+  // Updated to handle all notification types
   const getNotificationMessage = (
     notification: GroupedNotification,
   ): string => {
     const { type, actor_count, latest_actor_username, post_title } =
       notification;
-    const otherCount = actor_count - 1;
+    const displayNames = getDisplayNames(notification);
+    const postText = post_title ? `"${post_title}"` : "a post";
+
+    // Handle follow notifications
+    if (type === "follow") {
+      if (actor_count === 1) {
+        return `${displayNames} started following you`;
+      }
+      return `${displayNames} started following you`;
+    }
 
     // Handle comment notifications
     if (type === "comment") {
       if (actor_count === 1) {
-        return `${latest_actor_username} commented on your post "${post_title || "a post"}"`;
+        return `${displayNames} commented on your post ${postText}`;
       }
-      if (actor_count === 2) {
-        return `${latest_actor_username} and 1 other commented on your post "${post_title || "a post"}"`;
-      }
-      return `${latest_actor_username} and ${otherCount} others commented on your post "${post_title || "a post"}"`;
+      return `${displayNames} commented on your post ${postText}`;
     }
 
-    // Handle reply notifications (someone replied to your comment)
+    // Handle reply notifications
     if (type === "reply") {
       if (actor_count === 1) {
-        return `${latest_actor_username} replied to your comment on "${post_title || "a post"}"`;
+        return `${displayNames} replied to your comment on ${postText}`;
       }
-      if (actor_count === 2) {
-        return `${latest_actor_username} and 1 other replied to your comment on "${post_title || "a post"}"`;
-      }
-      return `${latest_actor_username} and ${otherCount} others replied to your comment on "${post_title || "a post"}"`;
+      return `${displayNames} replied to your comment on ${postText}`;
     }
 
-    // Handle reply_on_post notifications (someone replied on your post, not directly to your comment)
+    // Handle reply_on_post notifications
     if (type === "reply_on_post") {
       if (actor_count === 1) {
-        return `${latest_actor_username} replied on your post "${post_title || "a post"}"`;
+        return `${displayNames} replied on your post ${postText}`;
       }
-      if (actor_count === 2) {
-        return `${latest_actor_username} and 1 other replied on your post "${post_title || "a post"}"`;
-      }
-      return `${latest_actor_username} and ${otherCount} others replied on your post "${post_title || "a post"}"`;
+      return `${displayNames} replied on your post ${postText}`;
     }
 
     // Handle like notifications (default)
     if (actor_count === 1) {
-      return `${latest_actor_username} liked your post "${post_title || "a post"}"`;
+      return `${displayNames} liked your post ${postText}`;
     }
-    if (actor_count === 2) {
-      return `${latest_actor_username} and 1 other liked your post "${post_title || "a post"}"`;
-    }
-    return `${latest_actor_username} and ${otherCount} others liked your post "${post_title || "a post"}"`;
+    return `${displayNames} liked your post ${postText}`;
   };
 
   const formatTime = (dateString: string): string => {
@@ -185,48 +228,52 @@ export function NotificationBell() {
               </div>
             ) : (
               <>
-                {notifications.map((notification) => (
-                  <Link
-                    key={notification.notification_id}
-                    href={`/posts/${notification.post_id}`}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`block border-b p-3 transition-colors hover:bg-gray-50 ${
-                      !notification.read ? "bg-blue-50" : ""
-                    }`}
-                  >
-                    <div className="flex gap-3">
-                      {/* Avatar */}
-                      {notification.latest_actor_avatar ? (
-                        <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full">
-                          <Image
-                            src={notification.latest_actor_avatar}
-                            alt={notification.latest_actor_username}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-medium text-white">
-                          {notification.latest_actor_username?.[0]?.toUpperCase() ||
-                            "U"}
-                        </div>
-                      )}
+                {notifications.map((notification) => {
+                  const href = getNotificationHref(notification);
 
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-700">
-                          {getNotificationMessage(notification)}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-400">
-                          {formatTime(notification.created_at)}
-                        </p>
+                  return (
+                    <Link
+                      key={notification.notification_id}
+                      href={href}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`block border-b p-3 transition-colors hover:bg-gray-50 ${
+                        !notification.read ? "bg-blue-50" : ""
+                      }`}
+                    >
+                      <div className="flex gap-3">
+                        {/* Avatar */}
+                        {notification.latest_actor_avatar ? (
+                          <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full">
+                            <Image
+                              src={notification.latest_actor_avatar}
+                              alt={notification.latest_actor_username}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-medium text-white">
+                            {notification.latest_actor_username?.[0]?.toUpperCase() ||
+                              "U"}
+                          </div>
+                        )}
+
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-700">
+                            {getNotificationMessage(notification)}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {formatTime(notification.created_at)}
+                          </p>
+                        </div>
+
+                        {!notification.read && (
+                          <div className="h-2 w-2 rounded-full bg-blue-500" />
+                        )}
                       </div>
-
-                      {!notification.read && (
-                        <div className="h-2 w-2 rounded-full bg-blue-500" />
-                      )}
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
 
                 {hasMore && (
                   <button

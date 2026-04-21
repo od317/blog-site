@@ -1,6 +1,6 @@
 export interface GroupedNotification {
   type: string;
-  post_id: string;
+  post_id: string | null;
   post_title: string | null;
   read: boolean;
   created_at: string;
@@ -16,6 +16,7 @@ export interface GroupedNotification {
   comment_previews?: string[];
   latest_comment_id?: string;
   latest_comment_preview?: string;
+  actor_id?: string;
 }
 
 export interface NotificationsResponse {

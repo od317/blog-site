@@ -2,6 +2,7 @@ const User = require("../models/User");
 const { calculateReadingTime } = require("../utils/readingTime");
 const pool = require("../config/database");
 const cloudinary = require("../config/cloudinary");
+const Notification = require("../models/Notification");
 
 // Get user profile with stats
 exports.getProfile = async (req, res) => {
@@ -155,6 +156,9 @@ exports.followUser = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Get follower info for notification
+    const follower = await User.findById(followerId);
+
     // Check if already following
     const checkQuery = `
       SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2
@@ -192,10 +196,25 @@ exports.followUser = async (req, res) => {
       [followerId],
     );
 
-    // Emit real-time update
-    const io = req.app.get("io");
+    // 🔔 CREATE FOLLOW NOTIFICATION
+    await Notification.create({
+      userId: userId, // The person being followed
+      type: "follow",
+      actorId: followerId, // The person who followed
+      postId: null, // No post for follow notifications
+      commentId: null,
+    });
 
-    // Notify the profile page being viewed
+    // Emit real-time notification
+    const io = req.app.get("io");
+    io.to(`user:${userId}`).emit("new-notification", {
+      type: "follow",
+      followerUsername: follower?.username,
+      followerFullName: follower?.full_name,
+      followerAvatar: follower?.avatar_url,
+    });
+
+    // Emit real-time update for profile page
     io.to(`profile-${userId}`).emit("followers-updated", {
       userId,
       followersCount: parseInt(newFollowersCount.rows[0].followers_count),
@@ -203,11 +222,13 @@ exports.followUser = async (req, res) => {
       followerId,
     });
 
-    // Also notify the follower's profile (if they're viewing their own following count)
+    // Also notify the follower's profile
     io.to(`profile-${followerId}`).emit("following-updated", {
       userId: followerId,
       followingCount: parseInt(newFollowingCount.rows[0].following_count),
     });
+
+    console.log(`📢 User ${followerId} followed user ${userId}`);
 
     res.json({
       message: "User followed successfully",

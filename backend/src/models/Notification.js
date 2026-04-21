@@ -42,32 +42,9 @@ class Notification {
 
   // Get grouped notifications for a user
   static async getGroupedByUser(userId, limit = 20, offset = 0) {
-    // Get distinct (post_id, type, read) groups with latest timestamp
-    const groupsQuery = `
-    SELECT 
-      post_id,
-      type,
-      read,
-      MAX(created_at) as latest_created
-    FROM notifications
-    WHERE user_id = $1
-    GROUP BY post_id, type, read
-    ORDER BY 
-      read ASC,
-      latest_created DESC
-    LIMIT $2 OFFSET $3
-  `;
-
-    const groupsResult = await pool.query(groupsQuery, [userId, limit, offset]);
-
-    if (groupsResult.rows.length === 0) {
-      return [];
-    }
-
-    const postIds = [...new Set(groupsResult.rows.map((row) => row.post_id))];
-
-    // Get ALL notifications for these posts
-    const notificationsQuery = `
+    // First, get distinct groups by using a subquery approach
+    // Get all unread notifications first to prioritize them
+    const allNotificationsQuery = `
     SELECT 
       n.*,
       u.username as actor_username,
@@ -79,24 +56,37 @@ class Notification {
     JOIN users u ON n.actor_id = u.id
     LEFT JOIN posts p ON n.post_id = p.id
     LEFT JOIN comments c ON n.comment_id = c.id
-    WHERE n.user_id = $1 
-      AND n.post_id = ANY($2::uuid[])
-    ORDER BY n.created_at DESC
+    WHERE n.user_id = $1
+    ORDER BY n.read ASC, n.created_at DESC
+    LIMIT $2 OFFSET $3
   `;
 
-    const allNotifications = await pool.query(notificationsQuery, [
+    const notificationsResult = await pool.query(allNotificationsQuery, [
       userId,
-      postIds,
+      limit * 2, // Fetch more to ensure we have enough after grouping
+      offset,
     ]);
 
-    // Group by composite key (post_id + type + read)
+    if (notificationsResult.rows.length === 0) {
+      return [];
+    }
+
+    // Group by composite key in JavaScript (post_id + type + read for posts, actor_id for follows)
     const groupedMap = new Map();
 
-    for (const notif of allNotifications.rows) {
-      const compositeKey = `${notif.post_id}-${notif.type}-${notif.read}`;
+    for (const notif of notificationsResult.rows) {
+      let groupKey;
 
-      if (!groupedMap.has(compositeKey)) {
-        groupedMap.set(compositeKey, {
+      // For follow notifications, group by actor_id (since no post_id)
+      if (notif.type === "follow") {
+        groupKey = `follow-${notif.actor_id}-${notif.read}`;
+      } else {
+        // For post-related notifications, group by post_id and type and read
+        groupKey = `${notif.post_id}-${notif.type}-${notif.read}`;
+      }
+
+      if (!groupedMap.has(groupKey)) {
+        groupedMap.set(groupKey, {
           type: notif.type,
           post_id: notif.post_id,
           post_title: notif.post_title,
@@ -113,13 +103,17 @@ class Notification {
           latest_actor_avatar: notif.actor_avatar,
           latest_comment_id: notif.comment_id,
           latest_comment_preview: notif.comment_content?.substring(0, 100),
-          notification_id: `${notif.post_id}-${notif.type}-${notif.read}-${notif.created_at.getTime()}`,
+          notification_id:
+            notif.type === "follow"
+              ? `follow-${notif.actor_id}-${notif.read}-${notif.created_at.getTime()}`
+              : `${notif.post_id}-${notif.type}-${notif.read}-${notif.created_at.getTime()}`,
+          actor_id: notif.actor_id,
         });
       }
 
-      const group = groupedMap.get(compositeKey);
+      const group = groupedMap.get(groupKey);
 
-      // Count unique actors
+      // Count unique actors (only for non-follow or add to follow groups)
       if (!group.actor_usernames.includes(notif.actor_username)) {
         group.actor_count++;
         group.actor_usernames.push(notif.actor_username);
@@ -156,16 +150,19 @@ class Notification {
       }
     }
 
-    // Convert map to array and sort
+    // Convert map to array and sort (unread first, then by date)
     const results = Array.from(groupedMap.values());
     results.sort((a, b) => {
+      // Unread first (false before true)
       if (a.read !== b.read) {
         return a.read === false ? -1 : 1;
       }
+      // Then by date (newest first)
       return new Date(b.created_at) - new Date(a.created_at);
     });
 
-    return results;
+    // Apply limit after grouping
+    return results.slice(0, limit);
   }
 
   // Get unread count
@@ -211,6 +208,16 @@ class Notification {
       WHERE user_id = $1 AND read = false
     `;
     await pool.query(query, [userId]);
+  }
+
+  // Mark follow notifications as read for a specific actor
+  static async markFollowNotificationsAsRead(userId, actorId) {
+    const query = `
+    UPDATE notifications 
+    SET read = true 
+    WHERE user_id = $1 AND actor_id = $2 AND type = 'follow' AND read = false
+  `;
+    await pool.query(query, [userId, actorId]);
   }
 }
 

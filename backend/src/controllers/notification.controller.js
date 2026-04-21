@@ -68,3 +68,18 @@ exports.markAllAsRead = async (req, res) => {
     res.status(500).json({ error: "Failed to mark all as read" });
   }
 };
+
+// Mark follow notifications as read for a specific actor
+exports.markFollowAsRead = async (req, res) => {
+  try {
+    const { actorId } = req.params;
+    const userId = req.userId;
+
+    await Notification.markFollowNotificationsAsRead(userId, actorId);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Mark follow as read error:", error);
+    res.status(500).json({ error: "Failed to mark as read" });
+  }
+};

@@ -9,6 +9,7 @@ router.use(authMiddleware);
 router.get("/", notificationController.getNotifications);
 router.get("/unread-count", notificationController.getUnreadCount);
 router.put("/posts/:postId/read", notificationController.markPostAsRead);
+router.put("/follow/:actorId/read", notificationController.markFollowAsRead);
 router.put("/read-all", notificationController.markAllAsRead);
 
 module.exports = router;

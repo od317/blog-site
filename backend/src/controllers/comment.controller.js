@@ -1,5 +1,6 @@
 const Comment = require("../models/Comment");
 const Post = require("../models/Post");
+const Notification = require("../models/Notification");
 
 // Get comments for a post - PUBLIC
 exports.getPostComments = async (req, res) => {
@@ -64,8 +65,9 @@ exports.addComment = async (req, res) => {
     }
 
     // If parentId is provided, verify the parent comment exists
+    let parentComment = null;
     if (parentId) {
-      const parentComment = await Comment.findById(parentId);
+      parentComment = await Comment.findById(parentId);
       if (!parentComment) {
         return res.status(404).json({ error: "Parent comment not found" });
       }
@@ -82,6 +84,7 @@ exports.addComment = async (req, res) => {
     const commentCount = await Comment.getCount(postId);
 
     const io = req.app.get("io");
+    const currentUserId = req.userId;
 
     // Emit to post room for new comment or reply
     io.to(`post-${postId}`).emit(parentId ? "new-reply" : "new-comment", {
@@ -91,15 +94,43 @@ exports.addComment = async (req, res) => {
       parentId,
     });
 
-    // If it's a reply, also notify the parent comment author
-    if (parentId) {
-      const parentComment = await Comment.findById(parentId);
-      if (parentComment && parentComment.user_id !== req.userId) {
-        io.to(`user:${parentComment.user_id}`).emit("notification", {
+    // 🔔 CREATE NOTIFICATIONS (only increment unread count, don't show full notification yet)
+
+    // 1. Notify the post owner (if someone commented on their post and it's not their own comment)
+    if (post.user_id !== currentUserId) {
+      await Notification.create({
+        userId: post.user_id,
+        type: parentId ? "reply_on_post" : "comment",
+        actorId: currentUserId,
+        postId: postId,
+        commentId: comment.id, // ✅ Add comment ID
+      });
+
+      io.to(`user:${post.user_id}`).emit("new-notification", {
+        type: parentId ? "reply_on_post" : "comment",
+        postId: postId,
+        postTitle: post.title,
+        commentId: comment.id, // ✅ Add comment ID
+      });
+    }
+
+    // 2. If it's a reply, notify the parent comment author
+    if (parentId && parentComment && parentComment.user_id !== currentUserId) {
+      if (parentComment.user_id !== post.user_id) {
+        await Notification.create({
+          userId: parentComment.user_id,
           type: "reply",
-          comment: fullComment,
-          parentComment,
-          postId,
+          actorId: currentUserId,
+          postId: postId,
+          commentId: comment.id, // ✅ Add comment ID
+        });
+
+        io.to(`user:${parentComment.user_id}`).emit("new-notification", {
+          type: "reply",
+          postId: postId,
+          postTitle: post.title,
+          commentId: comment.id, // ✅ Add comment ID
+          parentCommentId: parentId,
         });
       }
     }
@@ -204,6 +235,7 @@ exports.updateComment = async (req, res) => {
   }
 };
 
+// Get nested comments with replies - PUBLIC
 exports.getNestedComments = async (req, res) => {
   try {
     const { postId } = req.params;

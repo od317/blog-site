@@ -12,7 +12,7 @@ interface NotificationStore {
   hasMore: boolean;
   offset: number;
   fetchNotifications: (reset?: boolean) => Promise<void>;
-  markPostAsRead: (postId: string) => Promise<void>;
+  markPostAsRead: (postId: string, type: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   addNotification: (notification: GroupedNotification) => void;
   incrementUnreadCount: () => void;
@@ -40,6 +40,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const response = await api.get<NotificationsResponse>(
         `/notifications?limit=${LIMIT}&offset=${newOffset}`,
       );
+      console.log(response);
 
       set((state) => ({
         notifications: reset
@@ -56,18 +57,26 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }
   },
 
-  markPostAsRead: async (postId: string) => {
+  markPostAsRead: async (postId: string, type?: string) => {
     try {
-      await api.put(`/notifications/posts/${postId}/read`);
+      const url = type
+        ? `/notifications/posts/${postId}/read?type=${type}`
+        : `/notifications/posts/${postId}/read`;
+      await api.put(url);
+
       set((state) => ({
         notifications: state.notifications.map((n) =>
-          n.post_id === postId ? { ...n, read: true } : n,
+          n.post_id === postId && (!type || n.type === type)
+            ? { ...n, read: true }
+            : n,
         ),
         unreadCount: Math.max(
           0,
           state.unreadCount -
-            state.notifications.filter((n) => n.post_id === postId && !n.read)
-              .length,
+            state.notifications.filter(
+              (n) =>
+                n.post_id === postId && (!type || n.type === type) && !n.read,
+            ).length,
         ),
       }));
     } catch (error) {

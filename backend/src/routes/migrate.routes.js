@@ -168,7 +168,7 @@ router.post("/add-comment-updated-at", async (req, res) => {
   }
 });
 
-// ✅ NEW: Migration: Add notifications table
+// ✅ UPDATED: Migration: Add notifications table with comment_id column
 router.post("/add-notifications-table", async (req, res) => {
   try {
     console.log("🔧 Running migration: Adding notifications table...");
@@ -182,10 +182,34 @@ router.post("/add-notifications-table", async (req, res) => {
     `);
 
     if (checkTable.rows[0].exists) {
+      // Table exists, check if comment_id column exists
+      const checkColumn = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'notifications' AND column_name = 'comment_id'
+      `);
+
+      if (checkColumn.rows.length === 0) {
+        console.log(
+          "🔧 Adding comment_id column to existing notifications table...",
+        );
+        await pool.query(`
+          ALTER TABLE notifications 
+          ADD COLUMN comment_id UUID REFERENCES comments(id) ON DELETE CASCADE
+        `);
+        console.log("✅ comment_id column added");
+
+        // Add index on comment_id
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_notifications_comment_id ON notifications(comment_id)
+        `);
+        console.log("✅ index on comment_id created");
+      }
+
       return res.json({ message: "Notifications table already exists" });
     }
 
-    // Create notifications table
+    // Create notifications table with comment_id column
     await pool.query(`
       CREATE TABLE notifications (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -193,6 +217,7 @@ router.post("/add-notifications-table", async (req, res) => {
         type VARCHAR(50) NOT NULL,
         actor_id UUID REFERENCES users(id) ON DELETE CASCADE,
         post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
         read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -205,13 +230,14 @@ router.post("/add-notifications-table", async (req, res) => {
       CREATE INDEX idx_notifications_user_id ON notifications(user_id);
       CREATE INDEX idx_notifications_user_read ON notifications(user_id, read);
       CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+      CREATE INDEX idx_notifications_comment_id ON notifications(comment_id);
     `);
 
     console.log("✅ Notifications indexes created");
 
     res.json({
       success: true,
-      message: "Notifications table added successfully",
+      message: "Notifications table added successfully with comment_id column",
     });
   } catch (error) {
     console.error("Migration error:", error);
@@ -219,7 +245,64 @@ router.post("/add-notifications-table", async (req, res) => {
   }
 });
 
-// Run all migrations (including notifications)
+// ✅ NEW: Migration to add comment_id column to existing notifications table
+router.post("/add-comment-id-to-notifications", async (req, res) => {
+  try {
+    console.log(
+      "🔧 Running migration: Adding comment_id column to notifications table...",
+    );
+
+    // Check if table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'notifications'
+      );
+    `);
+
+    if (!tableCheck.rows[0].exists) {
+      return res
+        .status(400)
+        .json({ error: "Notifications table does not exist yet" });
+    }
+
+    // Check if comment_id column exists
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'notifications' AND column_name = 'comment_id'
+    `);
+
+    if (columnCheck.rows.length > 0) {
+      return res.json({ message: "Column comment_id already exists" });
+    }
+
+    // Add comment_id column
+    await pool.query(`
+      ALTER TABLE notifications 
+      ADD COLUMN comment_id UUID REFERENCES comments(id) ON DELETE CASCADE
+    `);
+
+    console.log("✅ comment_id column added");
+
+    // Add index on comment_id
+    await pool.query(`
+      CREATE INDEX idx_notifications_comment_id ON notifications(comment_id)
+    `);
+
+    console.log("✅ index on comment_id created");
+
+    res.json({
+      success: true,
+      message: "comment_id column added to notifications table successfully",
+    });
+  } catch (error) {
+    console.error("Migration error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Run all migrations (including notifications with comment_id)
 router.post("/run-all", async (req, res) => {
   try {
     // Add avatar_url to users
@@ -288,7 +371,22 @@ router.post("/run-all", async (req, res) => {
       console.log("✅ index on parent_id created");
     }
 
-    // ✅ Add notifications table
+    // Add updated_at to comments
+    const updatedAtCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'comments' AND column_name = 'updated_at'
+    `);
+
+    if (updatedAtCheck.rows.length === 0) {
+      await pool.query(`
+        ALTER TABLE comments 
+        ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      `);
+      console.log("✅ updated_at column added");
+    }
+
+    // ✅ Add notifications table with comment_id
     const notificationsCheck = await pool.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -304,6 +402,7 @@ router.post("/run-all", async (req, res) => {
           type VARCHAR(50) NOT NULL,
           actor_id UUID REFERENCES users(id) ON DELETE CASCADE,
           post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+          comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
           read BOOLEAN DEFAULT FALSE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -314,8 +413,29 @@ router.post("/run-all", async (req, res) => {
         CREATE INDEX idx_notifications_user_id ON notifications(user_id);
         CREATE INDEX idx_notifications_user_read ON notifications(user_id, read);
         CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+        CREATE INDEX idx_notifications_comment_id ON notifications(comment_id);
       `);
       console.log("✅ notifications indexes created");
+    } else {
+      // Check if comment_id column exists in notifications
+      const commentIdCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'notifications' AND column_name = 'comment_id'
+      `);
+
+      if (commentIdCheck.rows.length === 0) {
+        await pool.query(`
+          ALTER TABLE notifications 
+          ADD COLUMN comment_id UUID REFERENCES comments(id) ON DELETE CASCADE
+        `);
+        console.log("✅ comment_id column added to notifications");
+
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_notifications_comment_id ON notifications(comment_id)
+        `);
+        console.log("✅ index on comment_id created");
+      }
     }
 
     res.json({

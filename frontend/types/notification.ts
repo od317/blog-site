@@ -12,6 +12,10 @@ export interface GroupedNotification {
   actor_usernames: string[];
   actor_full_names: (string | null)[];
   actor_avatars: (string | null)[];
+  comment_ids?: string[];
+  comment_previews?: string[];
+  latest_comment_id?: string;
+  latest_comment_preview?: string;
 }
 
 export interface NotificationsResponse {

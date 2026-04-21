@@ -24,7 +24,7 @@ export function NotificationBell() {
 
   useNotificationRealtime();
 
-  // ✅ Fetch unread count on mount using API client
+  // Fetch unread count on mount using API client
   useEffect(() => {
     const fetchInitialUnreadCount = async () => {
       try {
@@ -62,25 +62,60 @@ export function NotificationBell() {
 
   const handleNotificationClick = async (notification: GroupedNotification) => {
     if (!notification.read) {
-      await markPostAsRead(notification.post_id);
+      // Pass the type to only mark that specific notification type as read
+      await markPostAsRead(notification.post_id, notification.type);
     }
     setIsOpen(false);
   };
 
+  // ✅ Updated to handle all notification types
   const getNotificationMessage = (
     notification: GroupedNotification,
   ): string => {
-    const { actor_count, latest_actor_username, post_title } = notification;
+    const { type, actor_count, latest_actor_username, post_title } =
+      notification;
     const otherCount = actor_count - 1;
 
+    // Handle comment notifications
+    if (type === "comment") {
+      if (actor_count === 1) {
+        return `${latest_actor_username} commented on your post "${post_title || "a post"}"`;
+      }
+      if (actor_count === 2) {
+        return `${latest_actor_username} and 1 other commented on your post "${post_title || "a post"}"`;
+      }
+      return `${latest_actor_username} and ${otherCount} others commented on your post "${post_title || "a post"}"`;
+    }
+
+    // Handle reply notifications (someone replied to your comment)
+    if (type === "reply") {
+      if (actor_count === 1) {
+        return `${latest_actor_username} replied to your comment on "${post_title || "a post"}"`;
+      }
+      if (actor_count === 2) {
+        return `${latest_actor_username} and 1 other replied to your comment on "${post_title || "a post"}"`;
+      }
+      return `${latest_actor_username} and ${otherCount} others replied to your comment on "${post_title || "a post"}"`;
+    }
+
+    // Handle reply_on_post notifications (someone replied on your post, not directly to your comment)
+    if (type === "reply_on_post") {
+      if (actor_count === 1) {
+        return `${latest_actor_username} replied on your post "${post_title || "a post"}"`;
+      }
+      if (actor_count === 2) {
+        return `${latest_actor_username} and 1 other replied on your post "${post_title || "a post"}"`;
+      }
+      return `${latest_actor_username} and ${otherCount} others replied on your post "${post_title || "a post"}"`;
+    }
+
+    // Handle like notifications (default)
     if (actor_count === 1) {
       return `${latest_actor_username} liked your post "${post_title || "a post"}"`;
     }
-
     if (actor_count === 2) {
       return `${latest_actor_username} and 1 other liked your post "${post_title || "a post"}"`;
     }
-
     return `${latest_actor_username} and ${otherCount} others liked your post "${post_title || "a post"}"`;
   };
 

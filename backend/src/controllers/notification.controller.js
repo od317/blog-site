@@ -4,7 +4,7 @@ const Notification = require("../models/Notification");
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.userId;
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 220, offset = 0 } = req.query;
 
     const notifications = await Notification.getGroupedByUser(
       userId,
@@ -12,7 +12,8 @@ exports.getNotifications = async (req, res) => {
       parseInt(offset),
     );
     const unreadCount = await Notification.getUnreadCount(userId);
-
+    console.log(notifications);
+    console.log(unreadCount);
     res.json({
       notifications,
       unreadCount,
@@ -44,9 +45,10 @@ exports.getUnreadCount = async (req, res) => {
 exports.markPostAsRead = async (req, res) => {
   try {
     const { postId } = req.params;
+    const { type } = req.query; // Optional: mark only specific type
     const userId = req.userId;
 
-    await Notification.markPostNotificationsAsRead(userId, postId);
+    await Notification.markPostNotificationsAsRead(userId, postId, type);
 
     res.json({ success: true });
   } catch (error) {

@@ -1,57 +1,100 @@
 import { create } from "zustand";
-import { Notification, NotificationType } from "@/types/notification";
+import { api } from "@/lib/api/client";
+import type {
+  GroupedNotification,
+  NotificationsResponse,
+} from "@/types/notification";
 
 interface NotificationStore {
-  notifications: Notification[];
-  addNotification: (
-    message: string,
-    type: NotificationType,
-    duration?: number,
-  ) => void;
-  removeNotification: (id: string) => void;
-  clearAll: () => void;
+  notifications: GroupedNotification[];
+  unreadCount: number;
+  isLoading: boolean;
+  hasMore: boolean;
+  offset: number;
+  fetchNotifications: (reset?: boolean) => Promise<void>;
+  markPostAsRead: (postId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  addNotification: (notification: GroupedNotification) => void;
+  incrementUnreadCount: () => void;
 }
+
+const LIMIT = 20;
 
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
+  unreadCount: 0,
+  isLoading: false,
+  hasMore: true,
+  offset: 0,
 
-  addNotification: (
-    message: string,
-    type: NotificationType,
-    duration: number = 5000,
-  ) => {
-    const id = Math.random().toString(36).substring(2, 11);
-    const notification: Notification = {
-      id,
-      type,
-      message,
-      duration,
-    };
+  fetchNotifications: async (reset = false) => {
+    const { isLoading, hasMore, offset } = get();
 
-    set((state) => ({
-      notifications: [...state.notifications, notification],
-    }));
+    if (isLoading) return;
+    if (!reset && !hasMore) return;
 
-    // Auto remove after duration
-    if (duration > 0) {
-      setTimeout(() => {
-        const { notifications } = get();
-        if (notifications.some((n) => n.id === id)) {
-          set((state) => ({
-            notifications: state.notifications.filter((n) => n.id !== id),
-          }));
-        }
-      }, duration);
+    set({ isLoading: true });
+
+    try {
+      const newOffset = reset ? 0 : offset;
+      const response = await api.get<NotificationsResponse>(
+        `/notifications?limit=${LIMIT}&offset=${newOffset}`,
+      );
+
+      set((state) => ({
+        notifications: reset
+          ? response.notifications
+          : [...state.notifications, ...response.notifications],
+        unreadCount: response.unreadCount,
+        hasMore: response.pagination.hasMore,
+        offset: newOffset + response.notifications.length,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+      set({ isLoading: false });
     }
   },
 
-  removeNotification: (id: string) => {
+  markPostAsRead: async (postId: string) => {
+    try {
+      await api.put(`/notifications/posts/${postId}/read`);
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.post_id === postId ? { ...n, read: true } : n,
+        ),
+        unreadCount: Math.max(
+          0,
+          state.unreadCount -
+            state.notifications.filter((n) => n.post_id === postId && !n.read)
+              .length,
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    }
+  },
+
+  markAllAsRead: async () => {
+    try {
+      await api.put("/notifications/read-all");
+      set((state) => ({
+        notifications: state.notifications.map((n) => ({ ...n, read: true })),
+        unreadCount: 0,
+      }));
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+    }
+  },
+
+  addNotification: (notification: GroupedNotification) => {
     set((state) => ({
-      notifications: state.notifications.filter((n) => n.id !== id),
+      notifications: [notification, ...state.notifications],
+      unreadCount: state.unreadCount + 1,
     }));
   },
 
-  clearAll: () => {
-    set({ notifications: [] });
+  incrementUnreadCount: () => {
+    set((state) => ({ unreadCount: state.unreadCount + 1 }));
   },
 }));

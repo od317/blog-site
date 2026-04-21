@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ClientProviders } from "@/components/providers";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export const metadata: Metadata = {
   title: "Blog App",
@@ -18,6 +19,7 @@ export default async function RootLayout({
       <body>
         <AuthProvider>
           <ClientProviders>
+            <NotificationBell />
             <main>{children}</main>
           </ClientProviders>
         </AuthProvider>

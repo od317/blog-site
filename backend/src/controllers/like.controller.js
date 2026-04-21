@@ -1,34 +1,59 @@
 const Like = require("../models/Like");
 const Post = require("../models/Post");
+const Notification = require("../models/Notification");
+const pool = require("../config/database");
 
 exports.likePost = async (req, res) => {
-  // Check authentication first
-  if (!req.userId) {
-    return res.status(401).json({
-      error: "Authentication required",
-      message: "You must be logged in to like a post",
-    });
-  }
-
   try {
     const { postId } = req.params;
     const userId = req.userId;
 
+    // Check if post exists
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
 
+    // Check if already liked
     const alreadyLiked = await Like.hasLiked(postId, userId);
+
     if (alreadyLiked) {
       return res.status(400).json({ error: "Post already liked" });
     }
 
-    await Like.create(postId, userId);
+    // Add like
+    const like = await Like.create(postId, userId);
     const likeCount = await Like.getCount(postId);
 
-    const io = req.app.get("io");
+    // ✅ Create notification (don't notify yourself)
+    // Add this inside likePost, after adding the like, before emitting events:
 
+    // Create notification for post owner (don't notify yourself)
+    if (post.user_id !== userId) {
+      console.log(
+        `📢 Creating like notification: User ${userId} liked post ${postId} owned by ${post.user_id}`,
+      );
+
+      await Notification.create({
+        userId: post.user_id,
+        type: "like",
+        actorId: userId,
+        postId: postId,
+      });
+
+      // Emit real-time notification
+      const io = req.app.get("io");
+      io.to(`user:${post.user_id}`).emit("new-notification", {
+        type: "like",
+        postId: postId,
+        postTitle: post.title,
+      });
+
+      console.log(`📢 Notification emitted to user:${post.user_id}`);
+    }
+
+    // Get the io instance for like updates
+    const io = req.app.get("io");
     io.to(`post-${postId}`).emit("like-updated", {
       postId,
       likeCount,
@@ -36,6 +61,7 @@ exports.likePost = async (req, res) => {
       action: "liked",
     });
 
+    // Also emit to global feed
     io.to("global-feed").emit("feed-like-updated", {
       postId,
       likeCount,
@@ -51,6 +77,7 @@ exports.likePost = async (req, res) => {
       success: true,
       liked: true,
       likeCount,
+      message: "Post liked",
     });
   } catch (error) {
     console.error("Like post error:", error);

@@ -85,6 +85,7 @@ const adminRoutes = require("./routes/admin.routes");
 const likeRoutes = require("./routes/likes.routes");
 const profileRoutes = require("./routes/profile.routes");
 const migrateRoutes = require("./routes/migrate.routes");
+const notificationRoutes = require("./routes/notification.routes");
 
 app.use("/api/migrate", migrateRoutes);
 app.use("/api/auth", authRoutes);
@@ -93,6 +94,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/likes", likeRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ========== HEALTH CHECK ==========
 app.get("/api/health", (req, res) => {

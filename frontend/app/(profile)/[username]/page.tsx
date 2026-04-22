@@ -1,37 +1,86 @@
+// app/(profile)/[username]/page.tsx
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfilePosts } from "@/components/profile/ProfilePosts";
 import { ProfilePageProps, UserProfile } from "@/types/Profile";
+import { PostsResponse } from "@/types/Post";
 
 // ============================================
-// DATA FETCHING - SERVER SIDE (Fixed - same pattern as post page)
+// CONSTANTS
+// ============================================
+const POSTS_PER_PAGE = 10;
+
+// ============================================
+// SERVER-SIDE DATA FETCHING
 // ============================================
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
-    // Build URL
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth-token")?.value;
+
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}`;
 
-    // Fetch from backend API with cookies (same as post page)
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      next: {
+        tags: [`profile-${username}`],
+        revalidate: 60, // ISR: revalidate every 60 seconds
+      },
+    });
 
     if (!response.ok) {
       if (response.status === 404) return null;
       throw new Error(`Failed to fetch profile: ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log("📦 Profile data received:", {
-      username: data.username,
-      isFollowing: data.isFollowing,
-    });
-
-    return data;
+    return response.json();
   } catch (error) {
     console.error("Error fetching profile:", error);
     return null;
+  }
+}
+
+async function getProfilePosts(
+  username: string,
+  offset: number = 0,
+  limit: number = POSTS_PER_PAGE,
+): Promise<PostsResponse> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth-token")?.value;
+
+    const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
+    const url = `${baseUrl}/profile/${username}/posts?limit=${limit}&offset=${offset}`;
+
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      next: {
+        tags: [`profile-posts-${username}`],
+        revalidate: 60,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch posts: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching profile posts:", error);
+    return {
+      posts: [],
+      pagination: { hasMore: false, total: 0, offset: 0, limit: 20 },
+    };
   }
 }
 
@@ -51,19 +100,24 @@ export async function generateMetadata({
     };
   }
 
+  const displayName = profile.full_name || profile.username;
+
   return {
-    title: `${profile.full_name || profile.username} | Blog App`,
+    title: `${displayName} (@${profile.username}) | Blog App`,
     description: profile.bio || `Read posts by ${profile.username} on Blog App`,
     openGraph: {
-      title: `${profile.full_name || profile.username}`,
+      title: displayName,
       description: profile.bio || `Posts by ${profile.username}`,
       type: "profile",
+      ...(profile.avatar_url && {
+        images: [{ url: profile.avatar_url }],
+      }),
     },
   };
 }
 
 // ============================================
-// GENERATE STATIC PARAMS
+// GENERATE STATIC PARAMS (Empty for dynamic)
 // ============================================
 export async function generateStaticParams() {
   return [];
@@ -74,10 +128,21 @@ export async function generateStaticParams() {
 // ============================================
 function ProfileHeaderSkeleton() {
   return (
-    <div className="animate-pulse">
-      <div className="mx-auto h-32 w-32 rounded-full bg-gray-200" />
-      <div className="mx-auto mt-4 h-6 w-48 rounded bg-gray-200" />
-      <div className="mx-auto mt-2 h-4 w-64 rounded bg-gray-200" />
+    <div className="rounded-lg bg-white p-6 shadow-sm">
+      <div className="flex flex-col items-center animate-pulse">
+        <div className="h-32 w-32 rounded-full bg-gray-200" />
+        <div className="mt-4 h-6 w-48 rounded bg-gray-200" />
+        <div className="mt-2 h-4 w-32 rounded bg-gray-200" />
+        <div className="mt-4 flex gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="text-center">
+              <div className="h-6 w-12 rounded bg-gray-200" />
+              <div className="mt-1 h-3 w-8 rounded bg-gray-200" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 h-9 w-24 rounded bg-gray-200" />
+      </div>
     </div>
   );
 }
@@ -86,8 +151,14 @@ function ProfilePostsSkeleton() {
   return (
     <div className="space-y-4">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="animate-pulse">
-          <div className="h-40 rounded-lg bg-gray-100" />
+        <div
+          key={i}
+          className="rounded-lg bg-white p-6 shadow-sm animate-pulse"
+        >
+          <div className="h-56 w-full rounded-lg bg-gray-200" />
+          <div className="mt-4 h-6 w-3/4 rounded bg-gray-200" />
+          <div className="mt-2 h-4 w-1/4 rounded bg-gray-200" />
+          <div className="mt-3 h-16 w-full rounded bg-gray-200" />
         </div>
       ))}
     </div>
@@ -99,7 +170,12 @@ function ProfilePostsSkeleton() {
 // ============================================
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
-  const profile = await getProfile(username);
+
+  // Parallel data fetching
+  const [profile, initialPostsData] = await Promise.all([
+    getProfile(username),
+    getProfilePosts(username, 0, POSTS_PER_PAGE),
+  ]);
 
   if (!profile) {
     notFound();
@@ -114,7 +190,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
         <div className="mt-8">
           <Suspense fallback={<ProfilePostsSkeleton />}>
-            <ProfilePosts username={username} />
+            <ProfilePosts username={username} initialData={initialPostsData} />
           </Suspense>
         </div>
       </div>

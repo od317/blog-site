@@ -1,6 +1,7 @@
+// components/profile/ProfileAvatar.tsx
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { memo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 
 interface ProfileAvatarProps {
@@ -12,7 +13,7 @@ interface ProfileAvatarProps {
   isUploading: boolean;
 }
 
-export function ProfileAvatar({
+export const ProfileAvatar = memo(function ProfileAvatar({
   username,
   avatarUrl,
   isOwnProfile,
@@ -22,18 +23,10 @@ export function ProfileAvatar({
 }: ProfileAvatarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [displayUrl, setDisplayUrl] = useState<string | null>(avatarUrl);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // ✅ Sync displayUrl with avatarUrl prop when it changes (e.g., after delete)
-  useEffect(() => {
-    // Only update if not showing a preview
-    const setDisplay = () => {
-      if (!previewUrl) {
-        setDisplayUrl(avatarUrl);
-      }
-    };
-    setDisplay();
-  }, [avatarUrl, previewUrl]);
+  const displayUrl = previewUrl || avatarUrl;
 
   // Clean up preview URL on unmount
   useEffect(() => {
@@ -44,74 +37,85 @@ export function ProfileAvatar({
     };
   }, [previewUrl]);
 
-  const handleAvatarClick = () => {
-    if (isOwnProfile && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validation
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file");
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Image must be less than 2MB");
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be less than 5MB");
       return;
     }
 
-    // Show preview immediately
+    // Show preview
     const newPreviewUrl = URL.createObjectURL(file);
     setPreviewUrl(newPreviewUrl);
-    setDisplayUrl(newPreviewUrl);
 
-    await onAvatarUpload(file);
-
-    // Clear preview after upload - displayUrl will be updated by the useEffect
-    setPreviewUrl(null);
+    try {
+      await onAvatarUpload(file);
+    } finally {
+      setPreviewUrl(null);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete your profile picture?"))
+    if (!confirm("Are you sure you want to delete your profile picture?")) {
       return;
-
-    // Optimistic update - clear the avatar immediately
-    setDisplayUrl(null);
-    setPreviewUrl(null);
+    }
 
     await onAvatarDelete();
   };
 
-  const finalAvatarUrl = previewUrl || displayUrl || avatarUrl;
-
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div
         className={`relative h-32 w-32 overflow-hidden rounded-full ${
-          isOwnProfile ? "cursor-pointer group" : ""
+          isOwnProfile ? "cursor-pointer" : ""
         }`}
-        onClick={handleAvatarClick}
+        onClick={() => isOwnProfile && fileInputRef.current?.click()}
       >
-        {finalAvatarUrl ? (
-          <Image
-            src={finalAvatarUrl}
-            alt={username}
-            fill
-            className="object-cover"
-          />
+        {displayUrl ? (
+          <>
+            {!isLoaded && (
+              <div className="absolute inset-0 animate-pulse bg-gray-200" />
+            )}
+            <Image
+              src={displayUrl}
+              alt={username}
+              fill
+              sizes="128px"
+              className={`
+                object-cover transition-all duration-300
+                ${isLoaded ? "opacity-100" : "opacity-0"}
+                ${isHovered && isOwnProfile ? "brightness-75" : ""}
+              `}
+              onLoad={() => setIsLoaded(true)}
+              priority
+              quality={90}
+            />
+          </>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-4xl font-bold text-white">
             {username[0]?.toUpperCase()}
           </div>
         )}
 
-        {/* Upload overlay */}
-        {isOwnProfile && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+        {/* Hover overlay for own profile */}
+        {isOwnProfile && isHovered && !isUploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <svg
               className="h-8 w-8 text-white"
               fill="none"
@@ -133,6 +137,13 @@ export function ProfileAvatar({
             </svg>
           </div>
         )}
+
+        {/* Uploading indicator */}
+        {isUploading && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          </div>
+        )}
       </div>
 
       {/* Hidden file input */}
@@ -146,12 +157,11 @@ export function ProfileAvatar({
         />
       )}
 
-      {/* Delete avatar button */}
-      {isOwnProfile && finalAvatarUrl && (
+      {/* Delete button */}
+      {isOwnProfile && displayUrl && !isUploading && isHovered && (
         <button
           onClick={handleDelete}
-          disabled={isUploading}
-          className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600 disabled:opacity-50"
+          className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1.5 text-white shadow-lg hover:bg-red-600 transition-colors"
           title="Delete avatar"
         >
           <svg
@@ -169,13 +179,6 @@ export function ProfileAvatar({
           </svg>
         </button>
       )}
-
-      {/* Upload indicator */}
-      {isUploading && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-        </div>
-      )}
     </div>
   );
-}
+});

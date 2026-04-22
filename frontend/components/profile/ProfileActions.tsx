@@ -1,3 +1,4 @@
+// components/profile/ProfileActions.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
@@ -7,6 +8,7 @@ interface ProfileActionsProps {
   isFollowing: boolean;
   isLoading: boolean;
   onFollowToggle: () => void;
+  onEditProfile: () => void;
 }
 
 export function ProfileActions({
@@ -14,10 +16,11 @@ export function ProfileActions({
   isFollowing,
   isLoading,
   onFollowToggle,
+  onEditProfile,
 }: ProfileActionsProps) {
   if (isOwnProfile) {
     return (
-      <Button variant="outline" className="mt-4">
+      <Button variant="outline" className="mt-4" onClick={onEditProfile}>
         Edit Profile
       </Button>
     );

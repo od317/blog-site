@@ -39,7 +39,7 @@ const LIMIT = 10; // Posts per page
 
 export const usePostStore = create<PostStore>((set, get) => ({
   posts: [],
-  isLoading: false,
+  isLoading: true,
   isFetchingMore: false,
   error: null,
   currentSort: "latest",

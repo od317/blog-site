@@ -1,27 +1,37 @@
+// components/profile/ProfileHeader.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { UserProfile } from "@/types/Profile";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { ProfileInfo } from "./ProfileInfo";
 import { ProfileStats } from "./ProfileStats";
 import { ProfileActions } from "./ProfileActions";
 import { useProfileData } from "@/lib/hooks/useProfileData";
+import { uploadAvatar, deleteAvatar } from "@/app/actions/profile.actions";
+import { EditProfileModal } from "./EditProfileModal";
 
 interface ProfileHeaderProps {
   initialProfile: UserProfile;
 }
 
 export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
-  const [avatarUrl, setAvatarUrl] = useState(initialProfile.avatar_url);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    initialProfile.avatar_url,
+  );
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState({
+    fullName: initialProfile.full_name,
+    bio: initialProfile.bio,
+  });
 
   const {
     displayIsFollowing,
     displayFollowersCount,
     displayIsOwnProfile,
     isLoading: isFollowLoading,
-    handleFollowToggle,
+    handleFollowToggle: handleFollowToggleBase,
   } = useProfileData({
     username: initialProfile.username,
     profileUserId: initialProfile.id,
@@ -30,56 +40,48 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     initialIsOwnProfile: initialProfile.isOwnProfile,
   });
 
-  const handleAvatarUpload = async (file: File) => {
-    setIsUploading(true);
+  // Wrap follow toggle with revalidation
+  const handleFollowToggle = useCallback(async () => {
+    await handleFollowToggleBase();
+  }, [handleFollowToggleBase]);
 
-    const formData = new FormData();
-    formData.append("avatar", file);
+  // Handle avatar upload using server action
+  const handleAvatarUpload = useCallback(
+    async (file: File) => {
+      setIsUploading(true);
 
-    try {
-      const response = await fetch("/api/proxy/profile/avatar", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
+      const formData = new FormData();
+      formData.append("avatar", file);
 
-      const data = await response.json();
-      console.log(data);
-      if (response.ok) {
-        setAvatarUrl(data.avatarUrl);
-      } else {
-        setAvatarUrl(initialProfile.avatar_url);
-        alert(data.error || "Failed to upload avatar");
+      try {
+        const result = await uploadAvatar(initialProfile.username, formData);
+
+        if (result.success && result.avatarUrl) {
+          setAvatarUrl(result.avatarUrl);
+        } else {
+          alert(result.error || "Failed to upload avatar");
+        }
+      } catch (error) {
+        console.error("Failed to upload avatar:", error);
+        alert("Failed to upload avatar. Please try again.");
+      } finally {
+        setIsUploading(false);
       }
-    } catch (error) {
-      console.error("Failed to upload avatar:", error);
-      setAvatarUrl(initialProfile.avatar_url);
-      alert("Failed to upload avatar. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
+    },
+    [initialProfile.username],
+  );
 
-  const handleAvatarDelete = async () => {
+  // Handle avatar delete using server action
+  const handleAvatarDelete = useCallback(async () => {
     setIsUploading(true);
 
-    // Don't set avatarUrl to null here - let the child component handle optimistic update
-    // The child component will clear its display immediately
-
     try {
-      const response = await fetch("/api/proxy/profile/avatar", {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const result = await deleteAvatar(initialProfile.username);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Revert will happen via avatarUrl prop not changing
-        alert(data.error || "Failed to delete avatar");
-      } else {
-        // ✅ Set avatarUrl to null in parent after successful deletion
+      if (result.success) {
         setAvatarUrl(null);
+      } else {
+        alert(result.error || "Failed to delete avatar");
       }
     } catch (error) {
       console.error("Failed to delete avatar:", error);
@@ -87,40 +89,61 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [initialProfile.username]);
+
+  // Handle profile update
+  const handleProfileUpdate = useCallback(
+    (fullName: string | null, bio: string | null) => {
+      setProfileData({ fullName, bio });
+    },
+    [],
+  );
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow-sm">
-      <div className="flex flex-col items-center">
-        <ProfileAvatar
-          username={initialProfile.username}
-          avatarUrl={avatarUrl}
-          isOwnProfile={displayIsOwnProfile}
-          onAvatarUpload={handleAvatarUpload}
-          onAvatarDelete={handleAvatarDelete}
-          isUploading={isUploading}
-        />
+    <>
+      <div className="rounded-lg bg-white p-6 shadow-sm">
+        <div className="flex flex-col items-center">
+          <ProfileAvatar
+            username={initialProfile.username}
+            avatarUrl={avatarUrl}
+            isOwnProfile={displayIsOwnProfile}
+            onAvatarUpload={handleAvatarUpload}
+            onAvatarDelete={handleAvatarDelete}
+            isUploading={isUploading}
+          />
 
-        <ProfileInfo
-          fullName={initialProfile.full_name}
-          username={initialProfile.username}
-          bio={initialProfile.bio}
-        />
+          <ProfileInfo
+            fullName={profileData.fullName}
+            username={initialProfile.username}
+            bio={profileData.bio}
+          />
 
-        <ProfileStats
-          postsCount={initialProfile.posts_count}
-          followersCount={displayFollowersCount}
-          followingCount={initialProfile.following_count}
-          totalLikesReceived={initialProfile.total_likes_received}
-        />
+          <ProfileStats
+            postsCount={initialProfile.posts_count}
+            followersCount={displayFollowersCount}
+            followingCount={initialProfile.following_count}
+            totalLikesReceived={initialProfile.total_likes_received}
+          />
 
-        <ProfileActions
-          isOwnProfile={displayIsOwnProfile}
-          isFollowing={displayIsFollowing}
-          isLoading={isFollowLoading}
-          onFollowToggle={handleFollowToggle}
-        />
+          <ProfileActions
+            isOwnProfile={displayIsOwnProfile}
+            isFollowing={displayIsFollowing}
+            isLoading={isFollowLoading}
+            onFollowToggle={handleFollowToggle}
+            onEditProfile={() => setIsEditModalOpen(true)}
+          />
+        </div>
       </div>
-    </div>
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        username={initialProfile.username}
+        initialFullName={profileData.fullName}
+        initialBio={profileData.bio}
+        onSuccess={handleProfileUpdate}
+      />
+    </>
   );
 }

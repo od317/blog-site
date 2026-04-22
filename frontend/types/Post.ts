@@ -46,13 +46,13 @@ export interface ProfilePost {
 
 export interface PaginationData {
   total: number;
-  limit: number;
   offset: number;
   hasMore: boolean;
+  limit: number;
 }
 
 export interface PostsResponse {
-  posts: ProfilePost[];
+  posts: Post[];
   pagination: PaginationData;
 }
 

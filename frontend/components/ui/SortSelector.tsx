@@ -1,38 +1,37 @@
+// components/ui/SortSelector.tsx
 "use client";
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-
-interface SortOption {
-  value: string;
-  label: string;
-}
-
-const sortOptions: SortOption[] = [
-  { value: "latest", label: "Latest" },
-  { value: "oldest", label: "Oldest" },
-  { value: "most_liked", label: "Most Liked" },
-  { value: "most_commented", label: "Most Commented" },
-];
+import { useRouter, useSearchParams } from "next/navigation";
+import { usePostStore } from "@/lib/store/postStore";
 
 interface SortSelectorProps {
-  currentSort?: string;
+  currentSort: string;
 }
 
-export function SortSelector({ currentSort = "latest" }: SortSelectorProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+const sortOptions = [
+  { value: "latest", label: "Latest" },
+  { value: "popular", label: "Most Popular" },
+  { value: "oldest", label: "Oldest" },
+];
 
-  const handleSortChange = (sortValue: string) => {
+export function SortSelector({ currentSort }: SortSelectorProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const resetPagination = usePostStore((state) => state.resetPagination);
+
+  const handleSortChange = (sort: string) => {
+    // Reset pagination before changing sort
+    resetPagination();
+
+    // Update URL with new sort parameter
     const params = new URLSearchParams(searchParams.toString());
-    params.set("sort", sortValue);
-    params.set("page", "1"); // Reset to first page when sorting changes
-    router.push(`${pathname}?${params.toString()}`);
+    params.set("sort", sort);
+    router.push(`/?${params.toString()}`);
   };
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-gray-500">Sort by:</span>
+      <label className="text-sm text-gray-600">Sort by:</label>
       <select
         value={currentSort}
         onChange={(e) => handleSortChange(e.target.value)}

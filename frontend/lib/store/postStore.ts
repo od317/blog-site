@@ -11,6 +11,7 @@ interface PostStore {
   currentSort: string;
   fetchPosts: (sort?: string) => Promise<void>;
   createPost: (data: { title: string; content: string }) => Promise<Post>;
+  ensurePost: (post: Post) => void;
   retryPost: (
     postId: string,
     data: { title: string; content: string },
@@ -43,7 +44,15 @@ export const usePostStore = create<PostStore>((set, get) => ({
       set({ error: message, isLoading: false });
     }
   },
-
+  ensurePost: (post) => {
+    const exists = get().posts.some((p) => p.id === post.id);
+    if (!exists) {
+      console.log("📥 Ensuring post in store:", post.id);
+      set((state) => ({
+        posts: [post, ...state.posts],
+      }));
+    }
+  },
   createPost: async (data) => {
     const { title, content } = data;
 

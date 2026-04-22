@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { PostDetails } from "@/components/post/PostDetails";
 import { Post } from "@/types/Post";
+import { PostDetails } from "@/components/post/PostDetails/PostDetails";
 
 // Fetch post data on the server (public data only)
 async function getPost(id: string): Promise<Post | null> {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SERVER_API_URL;
+    const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/posts/${id}`;
 
     // No cookies needed - only public data
@@ -30,8 +29,7 @@ async function getPost(id: string): Promise<Post | null> {
 
 // Generate static params for popular posts (ISR)
 export async function generateStaticParams() {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
 
   try {
     const response = await fetch(`${baseUrl}/posts?limit=10&offset=0`);

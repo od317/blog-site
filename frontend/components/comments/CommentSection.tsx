@@ -55,7 +55,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
     try {
       console.log("💬 Fetching nested comments for post:", postId);
       const response = await fetch(
-        `/api/proxy/posts/${postId}/comments/nested`,
+        `/api/proxy/posts/${postId}/comments-nested`,
       );
       const data = await response.json();
       console.log("💬 Nested comments response:", data);

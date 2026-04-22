@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Helper to get API URL based on environment
 function getBackendUrl(): string {
-  // In development (Docker), use the service name
-  if (process.env.NODE_ENV === "development") {
-    return process.env.NEXT_PUBLIC_SERVER_API_URL!;
-  }
-  // In production (Render), use the environment variable
-  return "https://blog-backend-5dai.onrender.com/api";
+  return process.env.NEXT_PUBLIC_SERVER_API_URL!;
 }
 
 export async function POST(request: NextRequest) {
@@ -15,7 +10,6 @@ export async function POST(request: NextRequest) {
     // Check content type to determine how to parse the body
     const contentType = request.headers.get("content-type") || "";
 
-    let body;
     const headers: Record<string, string> = {};
 
     // Get cookies from the incoming request
@@ -68,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle JSON (regular requests)
-    body = await request.json();
+    const body = await request.json();
     const { title, content } = body;
 
     const backendUrl = getBackendUrl();
@@ -84,7 +78,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({ title, content }),
     });
-
+    console.log(response);
     const data = await response.json();
 
     if (!response.ok) {

@@ -1,25 +1,30 @@
+// app/saved/page.tsx
+import { Metadata } from "next";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { Suspense } from "react";
+import { SavedPostsList } from "@/components/saved/SavedPostsList";
+import { SavedPostsSkeleton } from "@/components/saved/SavedPostsSkeleton";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { LikeButton } from "@/components/post/LikeButton";
-import { SaveButton } from "@/components/post/SaveButton";
+import { Post } from "@/types/Post";
 
-interface SavedPost {
-  id: string;
-  title: string;
-  content: string;
-  excerpt: string;
-  image_url: string | null;
-  username: string;
-  avatar_url: string | null;
-  like_count: number;
-  comment_count: number;
-  user_has_liked: boolean;
-  created_at: string;
-  saved_at: string;
-}
+// ============================================
+// METADATA
+// ============================================
+export const metadata: Metadata = {
+  title: "Saved Posts | Blog App",
+  description: "View your saved posts and bookmarks",
+};
+
+// ============================================
+// CONSTANTS
+// ============================================
+const DEFAULT_LIMIT = 10;
+
+// ============================================
+// TYPES
+// ============================================
 
 interface PaginationData {
   total: number;
@@ -29,27 +34,39 @@ interface PaginationData {
 }
 
 interface SavedPostsResponse {
-  posts: SavedPost[];
+  posts: Post[];
   pagination: PaginationData;
 }
 
-// ✅ Server-side data fetching
+// ============================================
+// SERVER-SIDE DATA FETCHING
+// ============================================
 async function getSavedPosts(
-  limit: number = 10,
+  limit: number = DEFAULT_LIMIT,
   offset: number = 0,
 ): Promise<SavedPostsResponse | null> {
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
 
+    // If no cookies, user is not authenticated
+    if (!cookieString) {
+      return null;
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/saves?limit=${limit}&offset=${offset}`;
 
     const response = await fetch(url, {
       headers: {
-        Cookie: cookieString,
+        Cookie: cookieString, // ✅ Use cookie string like the working version
+        "Content-Type": "application/json",
       },
-      cache: "no-store", // Don't cache saved posts (they change frequently)
+      // ✅ Use caching with revalidation for better performance
+      next: {
+        tags: ["saved-posts"],
+        revalidate: 30, // Revalidate every 30 seconds
+      },
     });
 
     if (!response.ok) {
@@ -60,61 +77,77 @@ async function getSavedPosts(
     }
 
     const data = await response.json();
-    return data;
+
+    // Ensure pagination data is complete
+    return {
+      posts: data.posts || [],
+      pagination: {
+        total: data.pagination?.total ?? 0,
+        limit: data.pagination?.limit ?? limit,
+        offset: data.pagination?.offset ?? offset,
+        hasMore: data.pagination?.hasMore ?? false,
+      },
+    };
   } catch (error) {
     console.error("Error fetching saved posts:", error);
     return null;
   }
 }
 
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
+// ============================================
+// PAGE PROPS
+// ============================================
 interface SavedPostsPageProps {
-  searchParams?: Promise<{
+  searchParams: Promise<{
     page?: string;
     limit?: string;
   }>;
 }
 
+// ============================================
+// MAIN PAGE COMPONENT
+// ============================================
 export default async function SavedPostsPage({
   searchParams,
 }: SavedPostsPageProps) {
   const params = await searchParams;
-  const page = parseInt(params?.page || "1", 10);
-  const limit = parseInt(params?.limit || "10", 10);
+  const page = Math.max(1, parseInt(params?.page || "1", 10));
+  const limit = Math.min(
+    50,
+    parseInt(params?.limit || String(DEFAULT_LIMIT), 10),
+  );
   const offset = (page - 1) * limit;
 
   const data = await getSavedPosts(limit, offset);
 
-  // Handle unauthenticated user
+  // Unauthenticated state
   if (!data) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-4xl px-4 py-8">
-          <Card className="p-12 text-center">
-            <p className="text-gray-500">
-              Please login to view your saved posts.
-            </p>
+      <div className="container mx-auto max-w-4xl px-4 py-8">
+        <Card className="p-12 text-center">
+          <div className="mx-auto mb-4 h-16 w-16 text-gray-400">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Sign in to view saved posts
+          </h2>
+          <p className="mt-2 text-gray-500">Save posts to read them later</p>
+          <div className="mt-6 flex justify-center gap-4">
             <Link href="/login">
-              <button className="mt-4 text-blue-500 hover:text-blue-600">
-                Login
-              </button>
+              <Button>Sign In</Button>
             </Link>
-          </Card>
-        </div>
+            <Link href="/register">
+              <Button variant="outline">Sign Up</Button>
+            </Link>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -124,129 +157,80 @@ export default async function SavedPostsPage({
   const nextPage = page + 1;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Saved Posts</h1>
-          <Link href="/">
-            <button className="text-sm text-blue-500 hover:text-blue-600">
-              ← Back to Feed
-            </button>
-          </Link>
+    <div className="container mx-auto max-w-4xl px-4 py-8">
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Saved Posts</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {pagination.total} {pagination.total === 1 ? "post" : "posts"} saved
+          </p>
         </div>
+        <Link href="/">
+          <Button variant="outline" size="sm">
+            ← Back to Feed
+          </Button>
+        </Link>
+      </div>
 
+      {/* Posts List with Suspense */}
+      <Suspense fallback={<SavedPostsSkeleton />}>
         {posts.length === 0 ? (
           <Card className="p-12 text-center">
-            <p className="text-gray-500">No saved posts yet.</p>
+            <div className="mx-auto mb-4 h-16 w-16 text-gray-400">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              No saved posts yet
+            </h3>
+            <p className="mt-2 text-gray-500">
+              Start saving posts you want to read later
+            </p>
             <Link href="/">
-              <button className="mt-4 text-blue-500 hover:text-blue-600">
-                Browse posts to save
-              </button>
+              <Button className="mt-4">Browse Posts</Button>
             </Link>
           </Card>
         ) : (
           <>
-            <div className="space-y-4">
-              {posts.map((post) => (
-                <Card key={post.id} className="overflow-hidden p-0">
-                  {/* Featured Image */}
-                  {post.image_url && (
-                    <Link href={`/posts/${post.id}`}>
-                      <div className="relative h-48 w-full overflow-hidden bg-gray-100 cursor-pointer">
-                        <Image
-                          src={post.image_url}
-                          alt={post.title}
-                          fill
-                          className="object-cover transition-transform duration-300 hover:scale-105"
-                        />
-                      </div>
-                    </Link>
-                  )}
+            <SavedPostsList
+              initialPosts={posts}
+              initialPagination={pagination}
+            />
 
-                  <div className="p-6">
-                    {/* Author info */}
-                    <div className="mb-3 flex items-center gap-2">
-                      {post.avatar_url ? (
-                        <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                          <Image
-                            src={post.avatar_url}
-                            alt={post.username}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-medium text-white">
-                          {post.username?.[0]?.toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <Link
-                          href={`/profile/${post.username}`}
-                          className="font-semibold text-gray-900 hover:text-blue-600 transition-colors"
-                        >
-                          {post.username}
-                        </Link>
-                        <p className="text-xs text-gray-500">
-                          Saved {formatDate(post.saved_at)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Title */}
-                    <Link href={`/posts/${post.id}`}>
-                      <h2 className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2">
-                        {post.title}
-                      </h2>
-                    </Link>
-
-                    {/* Excerpt */}
-                    <p className="mt-2 text-gray-600 line-clamp-3">
-                      {post.excerpt}
-                    </p>
-
-                    {/* Read more */}
-                    <Link
-                      href={`/posts/${post.id}`}
-                      className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Read more →
-                    </Link>
-
-                    {/* Actions */}
-                    <div className="mt-4 flex items-center gap-4 pt-3 border-t border-gray-100">
-                      <LikeButton
-                        postId={post.id}
-                        initialLikeCount={post.like_count}
-                        initialHasLiked={post.user_has_liked}
-                      />
-                      <Link href={`/posts/${post.id}#comments`}>
-                        <button className="flex items-center gap-1 text-gray-500 hover:text-blue-500 transition-colors">
-                          <span>💬</span>
-                          <span className="text-sm">{post.comment_count}</span>
-                        </button>
-                      </Link>
-                      <SaveButton postId={post.id} />
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-            {/* Load more button (using URL navigation for pagination) */}
+            {/* Load more button */}
             {hasMore && (
-              <div className="flex justify-center pt-4">
+              <div className="mt-8 flex justify-center">
                 <Link
                   href={`/saved?page=${nextPage}&limit=${limit}`}
-                  className="px-4 py-2 text-sm text-blue-500 hover:text-blue-600 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
                 >
-                  Load more
+                  Load More
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
                 </Link>
               </div>
             )}
           </>
         )}
-      </div>
+      </Suspense>
     </div>
   );
 }

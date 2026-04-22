@@ -3,6 +3,7 @@ import "./globals.css";
 import { ClientProviders } from "@/components/providers";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Blog App",
@@ -20,6 +21,9 @@ export default async function RootLayout({
         <AuthProvider>
           <ClientProviders>
             <NotificationBell />
+            <Link href="/saved" className="text-gray-600 hover:text-gray-900">
+              Saved
+            </Link>
             <main>{children}</main>
           </ClientProviders>
         </AuthProvider>

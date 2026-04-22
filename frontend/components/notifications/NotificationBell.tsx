@@ -131,6 +131,13 @@ export function NotificationBell() {
       return `${displayNames} started following you`;
     }
 
+    if (type === "save") {
+      if (actor_count === 1) {
+        return `${displayNames} saved your post ${postText}`;
+      }
+      return `${displayNames} saved your post ${postText}`;
+    }
+
     // Handle comment notifications
     if (type === "comment") {
       if (actor_count === 1) {

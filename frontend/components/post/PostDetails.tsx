@@ -14,6 +14,7 @@ import type { Post, Comment } from "@/types/Post";
 import { CommentSection } from "../comments/CommentSection";
 import { PostLikeStatus } from "./PostLikeStatus";
 import Image from "next/image";
+import { SaveButton } from "./SaveButton";
 
 interface PostDetailsProps {
   post: Post;
@@ -250,12 +251,22 @@ export function PostDetails({ post: initialPost }: PostDetailsProps) {
             <span>💬</span>
             <span className="text-sm">{post.comment_count}</span>
           </button>
+          <div className="mt-4 flex items-center gap-4 border-t pt-4">
+            <PostLikeStatus
+              postId={post.id}
+              initialLikeCount={post.like_count}
+            />
+            <button className="flex items-center gap-1 text-gray-500 hover:text-blue-500">
+              <span>💬</span>
+              <span className="text-sm">{post.comment_count}</span>
+            </button>
+            <SaveButton postId={post.id} />
+          </div>
         </div>
       </div>
 
       <CommentSection
         postId={post.id}
-        comments={comments}
         onCommentAdded={handleCommentAdded}
         onCommentDeleted={handleCommentDeleted}
         onCommentUpdated={handleCommentUpdated}

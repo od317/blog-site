@@ -2,7 +2,6 @@
 
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { useNotification } from "@/lib/hooks/useNotification";
 import { usePostStore } from "@/lib/store/postStore";
 import { Post } from "@/types/Post";
 
@@ -12,14 +11,14 @@ interface PostItemProps {
 
 export function PostItem({ post }: PostItemProps) {
   const { retryPost, removePost } = usePostStore();
-  const { showSuccess, showError } = useNotification();
+  // const { showSuccess, showError } = useNotification();
 
   const handleRetry = async () => {
     try {
       await retryPost(post.id, { title: post.title, content: post.content });
-      showSuccess("Post created successfully!");
+      // showSuccess("Post created successfully!");
     } catch (error) {
-      showError("Failed to create post. Please try again.");
+      // showError("Failed to create post. Please try again.");
     }
   };
 

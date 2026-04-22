@@ -3,6 +3,7 @@ const User = require("../models/User");
 const Comment = require("../models/Comment");
 const Like = require("../models/Like");
 const { calculateReadingTime } = require("../utils/readingTime");
+const pool = require("../config/database");
 
 // Get all posts (for homepage feed) - PUBLIC
 exports.getAllPosts = async (req, res) => {
@@ -214,5 +215,92 @@ exports.getActiveReaders = async (req, res) => {
   } catch (error) {
     console.error("Get active readers error:", error);
     res.status(500).json({ error: "Failed to get active readers" });
+  }
+};
+
+exports.searchPosts = async (req, res) => {
+  try {
+    const { q } = req.query;
+    const { limit = 20, offset = 0 } = req.query;
+
+    if (!q || q.trim().length === 0) {
+      return res.status(400).json({ error: "Search query is required" });
+    }
+
+    const searchTerm = `%${q.trim().toLowerCase()}%`;
+
+    const query = `
+      SELECT 
+        p.id,
+        p.title,
+        p.content,
+        LEFT(p.content, 200) as excerpt,
+        p.image_url,
+        p.user_id,
+        p.created_at,
+        u.username,
+        u.full_name,
+        u.avatar_url,
+        COUNT(DISTINCT l.id) as like_count,
+        COUNT(DISTINCT c.id) as comment_count,
+        CASE WHEN $3::uuid IS NOT NULL THEN 
+          EXISTS(
+            SELECT 1 FROM likes l2 
+            WHERE l2.post_id = p.id AND l2.user_id = $3
+          )
+        ELSE false END as user_has_liked
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN likes l ON p.id = l.post_id
+      LEFT JOIN comments c ON p.id = c.post_id
+      WHERE LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $2
+      GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
+      ORDER BY 
+        CASE 
+          WHEN LOWER(p.title) LIKE $1 THEN 1 
+          ELSE 2 
+        END,
+        p.created_at DESC
+      LIMIT $4 OFFSET $5
+    `;
+
+    const values = [
+      searchTerm,
+      searchTerm,
+      req.userId || null,
+      parseInt(limit),
+      parseInt(offset),
+    ];
+    const result = await pool.query(query, values);
+
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as count
+      FROM posts p
+      WHERE LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $2
+    `;
+    const countResult = await pool.query(countQuery, [searchTerm, searchTerm]);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Add reading time
+    const { calculateReadingTime } = require("../utils/readingTime");
+    const postsWithReadingTime = result.rows.map((post) => ({
+      ...post,
+      readingTime: calculateReadingTime(post.content || ""),
+    }));
+
+    res.json({
+      posts: postsWithReadingTime,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > parseInt(offset) + result.rows.length,
+      },
+      query: q,
+    });
+  } catch (error) {
+    console.error("Search posts error:", error);
+    res.status(500).json({ error: "Failed to search posts" });
   }
 };

@@ -13,6 +13,7 @@ router.use(authMiddleware);
 
 // ========== POST ROUTES ==========
 // Public read routes
+router.get("/search", postController.searchPosts);
 router.get("/", postController.getAllPosts);
 router.get("/user/:userId", postController.getUserPosts);
 router.get("/:id", postController.getPost);

@@ -8,12 +8,13 @@ const pool = require("../config/database");
 // Get all posts (for homepage feed) - PUBLIC
 exports.getAllPosts = async (req, res) => {
   try {
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 20, offset = 0, sort = "latest" } = req.query;
 
     const posts = await Post.findAll(
       parseInt(limit),
       parseInt(offset),
       req.userId || null,
+      sort,
     );
 
     const postsWithReadingTime = posts.map((post) => ({
@@ -187,13 +188,14 @@ exports.deletePost = async (req, res) => {
 exports.getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 20, offset = 0, sort = "latest" } = req.query;
 
     const posts = await Post.findByUser(
       userId,
       parseInt(limit),
       parseInt(offset),
       req.userId || null,
+      sort,
     );
 
     const postsWithReadingTime = posts.map((post) => ({
@@ -221,13 +223,30 @@ exports.getActiveReaders = async (req, res) => {
 exports.searchPosts = async (req, res) => {
   try {
     const { q } = req.query;
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 20, offset = 0, sortBy = "latest" } = req.query;
 
     if (!q || q.trim().length === 0) {
       return res.status(400).json({ error: "Search query is required" });
     }
 
     const searchTerm = `%${q.trim().toLowerCase()}%`;
+
+    let orderBy;
+    switch (sortBy) {
+      case "oldest":
+        orderBy = "p.created_at ASC";
+        break;
+      case "most_liked":
+        orderBy = "like_count DESC, p.created_at DESC";
+        break;
+      case "most_commented":
+        orderBy = "comment_count DESC, p.created_at DESC";
+        break;
+      case "latest":
+      default:
+        orderBy = "p.created_at DESC";
+        break;
+    }
 
     const query = `
       SELECT 
@@ -255,12 +274,7 @@ exports.searchPosts = async (req, res) => {
       LEFT JOIN comments c ON p.id = c.post_id
       WHERE LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $2
       GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
-      ORDER BY 
-        CASE 
-          WHEN LOWER(p.title) LIKE $1 THEN 1 
-          ELSE 2 
-        END,
-        p.created_at DESC
+      ORDER BY ${orderBy}
       LIMIT $4 OFFSET $5
     `;
 
@@ -273,7 +287,6 @@ exports.searchPosts = async (req, res) => {
     ];
     const result = await pool.query(query, values);
 
-    // Get total count for pagination
     const countQuery = `
       SELECT COUNT(*) as count
       FROM posts p
@@ -282,7 +295,6 @@ exports.searchPosts = async (req, res) => {
     const countResult = await pool.query(countQuery, [searchTerm, searchTerm]);
     const total = parseInt(countResult.rows[0].count);
 
-    // Add reading time
     const { calculateReadingTime } = require("../utils/readingTime");
     const postsWithReadingTime = result.rows.map((post) => ({
       ...post,
@@ -298,6 +310,7 @@ exports.searchPosts = async (req, res) => {
         hasMore: total > parseInt(offset) + result.rows.length,
       },
       query: q,
+      sortBy,
     });
   } catch (error) {
     console.error("Search posts error:", error);

@@ -8,7 +8,8 @@ interface PostStore {
   posts: Post[];
   isLoading: boolean;
   error: string | null;
-  fetchPosts: () => Promise<void>;
+  currentSort: string;
+  fetchPosts: (sort?: string) => Promise<void>;
   createPost: (data: { title: string; content: string }) => Promise<Post>;
   retryPost: (
     postId: string,
@@ -30,11 +31,12 @@ export const usePostStore = create<PostStore>((set, get) => ({
   posts: [],
   isLoading: false,
   error: null,
+  currentSort: "latest",
 
-  fetchPosts: async () => {
-    set({ isLoading: true, error: null });
+  fetchPosts: async (sort = "latest") => {
+    set({ isLoading: true, error: null, currentSort: sort });
     try {
-      const posts = await api.get<Post[]>("/posts");
+      const posts = await api.get<Post[]>(`/posts?sort=${sort}`);
       set({ posts, isLoading: false });
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -175,7 +177,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
           ? {
               ...post,
               like_count: likeCount,
-              // Only update user_has_liked if explicitly provided (for current user's own action)
               ...(userHasLiked !== undefined && {
                 user_has_liked: userHasLiked,
               }),

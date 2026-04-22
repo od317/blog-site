@@ -56,17 +56,33 @@ class Post {
     return plainText.substring(0, maxLength).trim() + "...";
   }
 
-  static async findAll(limit = 20, offset = 0, currentUserId = null) {
+  static async findAll(
+    limit = 20,
+    offset = 0,
+    currentUserId = null,
+    sortBy = "latest",
+  ) {
+    let orderBy;
+    switch (sortBy) {
+      case "oldest":
+        orderBy = "p.created_at ASC";
+        break;
+      case "most_liked":
+        orderBy = "like_count DESC, p.created_at DESC";
+        break;
+      case "most_commented":
+        orderBy = "comment_count DESC, p.created_at DESC";
+        break;
+      case "latest":
+      default:
+        orderBy = "p.created_at DESC";
+        break;
+    }
+
     if (!currentUserId) {
       const query = `
       SELECT 
-        p.id,
-        p.title,
-        p.content,
-        p.image_url,
-        p.user_id,
-        p.created_at,
-        p.updated_at,
+        p.*,
         u.username,
         u.full_name,
         u.avatar_url,
@@ -78,7 +94,7 @@ class Post {
       LEFT JOIN likes l ON p.id = l.post_id
       LEFT JOIN comments c ON p.id = c.post_id
       GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
-      ORDER BY p.created_at DESC
+      ORDER BY ${orderBy}
       LIMIT $1 OFFSET $2
     `;
       const values = [limit, offset];
@@ -88,13 +104,7 @@ class Post {
 
     const query = `
     SELECT 
-      p.id,
-      p.title,
-      p.content,
-      p.image_url,
-      p.user_id,
-      p.created_at,
-      p.updated_at,
+      p.*,
       u.username,
       u.full_name,
       u.avatar_url,
@@ -102,23 +112,18 @@ class Post {
       COUNT(DISTINCT c.id) as comment_count,
       EXISTS(
         SELECT 1 FROM likes l2 
-        WHERE l2.post_id = p.id AND l2.user_id = $3::uuid
+        WHERE l2.post_id = p.id AND l2.user_id = $3
       ) as user_has_liked
     FROM posts p
     JOIN users u ON p.user_id = u.id
     LEFT JOIN likes l ON p.id = l.post_id
     LEFT JOIN comments c ON p.id = c.post_id
     GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
-    ORDER BY p.created_at DESC
+    ORDER BY ${orderBy}
     LIMIT $1 OFFSET $2
   `;
     const values = [limit, offset, currentUserId];
     const result = await pool.query(query, values);
-
-    if (result.rows.length > 0) {
-      console.log("📊 First post has image:", !!result.rows[0].image_url);
-    }
-
     return result.rows;
   }
 
@@ -207,17 +212,29 @@ class Post {
     limit = 20,
     offset = 0,
     currentUserId = null,
+    sortBy = "latest",
   ) {
+    let orderBy;
+    switch (sortBy) {
+      case "oldest":
+        orderBy = "p.created_at ASC";
+        break;
+      case "most_liked":
+        orderBy = "like_count DESC, p.created_at DESC";
+        break;
+      case "most_commented":
+        orderBy = "comment_count DESC, p.created_at DESC";
+        break;
+      case "latest":
+      default:
+        orderBy = "p.created_at DESC";
+        break;
+    }
+
     if (!currentUserId) {
       const query = `
       SELECT 
-        p.id,
-        p.title,
-        p.content,
-        p.image_url,
-        p.user_id,
-        p.created_at,
-        p.updated_at,
+        p.*,
         u.username,
         u.full_name,
         u.avatar_url,
@@ -230,7 +247,7 @@ class Post {
       LEFT JOIN comments c ON p.id = c.post_id
       WHERE p.user_id = $1
       GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
-      ORDER BY p.created_at DESC
+      ORDER BY ${orderBy}
       LIMIT $2 OFFSET $3
     `;
       const values = [userId, limit, offset];
@@ -240,13 +257,7 @@ class Post {
 
     const query = `
     SELECT 
-      p.id,
-      p.title,
-      p.content,
-      p.image_url,
-      p.user_id,
-      p.created_at,
-      p.updated_at,
+      p.*,
       u.username,
       u.full_name,
       u.avatar_url,
@@ -254,7 +265,7 @@ class Post {
       COUNT(DISTINCT c.id) as comment_count,
       EXISTS(
         SELECT 1 FROM likes l2 
-        WHERE l2.post_id = p.id AND l2.user_id = $3::uuid
+        WHERE l2.post_id = p.id AND l2.user_id = $3
       ) as user_has_liked
     FROM posts p
     JOIN users u ON p.user_id = u.id
@@ -262,7 +273,7 @@ class Post {
     LEFT JOIN comments c ON p.id = c.post_id
     WHERE p.user_id = $1
     GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
-    ORDER BY p.created_at DESC
+    ORDER BY ${orderBy}
     LIMIT $2 OFFSET $4
   `;
     const values = [userId, limit, currentUserId, offset];

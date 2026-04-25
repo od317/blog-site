@@ -1,19 +1,32 @@
 "use client";
 
 interface ProfileInfoProps {
-  fullName: string | null;
   username: string;
-  bio: string | null;
+  fullName: string | null;
+  onEditClick: () => void;
+  isOwnProfile: boolean;
 }
 
-export function ProfileInfo({ fullName, username, bio }: ProfileInfoProps) {
+export function ProfileInfo({
+  username,
+  fullName,
+  onEditClick,
+  isOwnProfile,
+}: ProfileInfoProps) {
   return (
-    <>
-      <h1 className="mt-4 text-2xl font-bold text-gray-900">
-        {fullName || username}
-      </h1>
+    <div className="text-center">
+      {fullName && (
+        <h1 className="text-2xl font-bold text-gray-900">{fullName}</h1>
+      )}
       <p className="text-gray-500">@{username}</p>
-      {bio && <p className="mt-2 text-center text-gray-700">{bio}</p>}
-    </>
+      {isOwnProfile && (
+        <button
+          onClick={onEditClick}
+          className="mt-2 text-sm text-blue-500 hover:text-blue-600"
+        >
+          Edit display name
+        </button>
+      )}
+    </div>
   );
 }

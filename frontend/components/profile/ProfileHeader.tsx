@@ -1,4 +1,3 @@
-// components/profile/ProfileHeader.tsx
 "use client";
 
 import { useState, useCallback } from "react";
@@ -9,7 +8,7 @@ import { ProfileStats } from "./ProfileStats";
 import { ProfileActions } from "./ProfileActions";
 import { useProfileData } from "@/lib/hooks/useProfileData";
 import { uploadAvatar, deleteAvatar } from "@/app/actions/profile.actions";
-import { EditProfileModal } from "./EditProfileModal";
+import { EditFullNameModal } from "./EditProfileModal";
 
 interface ProfileHeaderProps {
   initialProfile: UserProfile;
@@ -19,12 +18,11 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     initialProfile.avatar_url,
   );
+  const [fullName, setFullName] = useState<string | null>(
+    initialProfile.full_name,
+  );
   const [isUploading, setIsUploading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [profileData, setProfileData] = useState({
-    fullName: initialProfile.full_name,
-    bio: initialProfile.bio,
-  });
 
   const {
     displayIsFollowing,
@@ -40,12 +38,10 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     initialIsOwnProfile: initialProfile.isOwnProfile,
   });
 
-  // Wrap follow toggle with revalidation
   const handleFollowToggle = useCallback(async () => {
     await handleFollowToggleBase();
   }, [handleFollowToggleBase]);
 
-  // Handle avatar upload using server action
   const handleAvatarUpload = useCallback(
     async (file: File) => {
       setIsUploading(true);
@@ -71,7 +67,6 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     [initialProfile.username],
   );
 
-  // Handle avatar delete using server action
   const handleAvatarDelete = useCallback(async () => {
     setIsUploading(true);
 
@@ -91,13 +86,9 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
     }
   }, [initialProfile.username]);
 
-  // Handle profile update
-  const handleProfileUpdate = useCallback(
-    (fullName: string | null, bio: string | null) => {
-      setProfileData({ fullName, bio });
-    },
-    [],
-  );
+  const handleFullNameUpdate = useCallback((newFullName: string | null) => {
+    setFullName(newFullName);
+  }, []);
 
   return (
     <>
@@ -113,9 +104,10 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
           />
 
           <ProfileInfo
-            fullName={profileData.fullName}
             username={initialProfile.username}
-            bio={profileData.bio}
+            fullName={fullName}
+            onEditClick={() => setIsEditModalOpen(true)}
+            isOwnProfile={displayIsOwnProfile}
           />
 
           <ProfileStats
@@ -135,14 +127,12 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
-      <EditProfileModal
+      <EditFullNameModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         username={initialProfile.username}
-        initialFullName={profileData.fullName}
-        initialBio={profileData.bio}
-        onSuccess={handleProfileUpdate}
+        currentFullName={fullName}
+        onSuccess={handleFullNameUpdate}
       />
     </>
   );

@@ -11,6 +11,7 @@ router.use(authMiddleware);
 router.get("/:username", profileController.getProfile);
 router.get("/:username/posts", profileController.getUserPosts);
 router.put("/update", express.json(), profileController.updateProfile);
+router.patch("/username", profileController.updateUsername);
 
 // File upload route - NO JSON parser
 router.post(

@@ -1,6 +1,7 @@
 // app/actions/profile.actions.ts
 "use server";
 
+import { User } from "@/types/auth";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 
@@ -12,42 +13,48 @@ interface UpdateProfileInput {
   bio?: string | null;
 }
 
+interface UpdateProfileResponse {
+  success: boolean;
+  user?: User;
+  error?: string;
+}
+
+
 export async function updateProfile(
   username: string,
   data: UpdateProfileInput,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<UpdateProfileResponse> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    if (!token) {
-      return { success: false, error: "Not authenticated" };
-    }
+    const cookieString = cookieStore.toString();
 
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
-    const response = await fetch(`${baseUrl}/profile`, {
-      method: "PATCH",
+    const response = await fetch(`${baseUrl}/profile/update`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Cookie: cookieString,
       },
       body: JSON.stringify(data),
     });
 
+    const result = await response.json();
+
     if (!response.ok) {
-      const error = await response.json();
       return {
         success: false,
-        error: error.message || "Failed to update profile",
+        error: result.error || "Failed to update profile",
       };
     }
 
     // Revalidate all profile-related caches
+    revalidatePath(`/profile/${username}`);
     revalidatePath(`/${username}`);
-    revalidateTag(`profile-${username}`, "max");
-    revalidateTag(`profile-posts-${username}`, "max");
 
-    return { success: true };
+    return {
+      success: true,
+      user: result.user,
+    };
   } catch (error) {
     console.error("Update profile error:", error);
     return { success: false, error: "An unexpected error occurred" };

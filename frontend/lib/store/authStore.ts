@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { AuthState } from "@/types/auth";
+import { AuthState, User } from "@/types/auth";
 import { authApi } from "@/lib/api/auth";
 import { formatError } from "@/lib/utils/errors";
 import { getErrorMessage, isApiError } from "@/types/error";
@@ -21,6 +21,7 @@ interface AuthStore extends AuthState {
   checkAuth: () => Promise<boolean>;
   clearError: () => void;
   validateAndRefresh: () => Promise<boolean>;
+  setUser: (user: User | null) => void;
 }
 
 // Flag to prevent multiple simultaneous auth checks
@@ -190,6 +191,9 @@ export const useAuthStore = create<AuthStore>()(
 
       clearError: () => {
         set({ error: null });
+      },
+      setUser: (user) => {
+        set({ user, isAuthenticated: !!user });
       },
     }),
     {

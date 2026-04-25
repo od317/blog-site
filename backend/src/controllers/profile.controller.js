@@ -360,3 +360,72 @@ exports.deleteAvatar = async (req, res) => {
     res.status(500).json({ error: "Failed to delete avatar" });
   }
 };
+
+// Update username
+exports.updateUsername = async (req, res) => {
+  try {
+    const { username } = req.body;
+    const userId = req.userId;
+
+    // Validate input
+    if (!username || username.trim().length === 0) {
+      return res.status(400).json({ error: "Username is required" });
+    }
+
+    // Validate username format (alphanumeric + underscore, 3-50 chars)
+    const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
+    if (!usernameRegex.test(username)) {
+      return res.status(400).json({
+        error:
+          "Username must be 3-50 characters and can only contain letters, numbers, and underscore",
+      });
+    }
+
+    // Get current user info
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if username is already taken by another user
+    const existingUser = await User.findByUsername(username);
+    if (existingUser && existingUser.id !== userId) {
+      return res.status(409).json({ error: "Username already taken" });
+    }
+
+    // Update username
+    const query = `
+      UPDATE users 
+      SET username = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING id, username, email, full_name, bio, avatar_url, created_at
+    `;
+    const result = await pool.query(query, [username.trim(), userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Emit real-time update for profile page
+    const io = req.app.get("io");
+    io.to(`user:${userId}`).emit("username-updated", {
+      userId,
+      oldUsername: currentUser.username,
+      newUsername: username.trim(),
+    });
+
+    console.log(
+      `📝 User ${userId} changed username from ${currentUser.username} to ${username.trim()}`,
+    );
+
+    res.json({
+      success: true,
+      message: "Username updated successfully",
+      user: result.rows[0],
+      oldUsername: currentUser.username,
+    });
+  } catch (error) {
+    console.error("Update username error:", error);
+    res.status(500).json({ error: "Failed to update username" });
+  }
+};

@@ -30,7 +30,7 @@ export function useProfileData({
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
   const [isOwnProfile, setIsOwnProfile] = useState(initialIsOwnProfile);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Fetch fresh follow status

@@ -135,7 +135,7 @@ export function PostLikeStatus({
         disabled
         className="flex items-center gap-1 text-gray-400 cursor-wait"
       >
-        <span>❤️</span>
+        <span>loading heart</span>
         <span className="text-sm">{likeCount}</span>
       </button>
     );

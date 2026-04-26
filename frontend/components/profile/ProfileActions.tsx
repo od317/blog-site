@@ -2,6 +2,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import { UserPlus, UserCheck, Pencil } from "lucide-react";
 
 interface ProfileActionsProps {
   isOwnProfile: boolean;
@@ -20,7 +21,8 @@ export function ProfileActions({
 }: ProfileActionsProps) {
   if (isOwnProfile) {
     return (
-      <Button variant="outline" className="mt-4" onClick={onEditProfile}>
+      <Button variant="outline" className="mt-6" onClick={onEditProfile}>
+        <Pencil className="h-4 w-4 mr-1" />
         Edit Profile
       </Button>
     );
@@ -31,9 +33,19 @@ export function ProfileActions({
       onClick={onFollowToggle}
       isLoading={isLoading}
       variant={isFollowing ? "outline" : "primary"}
-      className="mt-4"
+      className="mt-6"
     >
-      {isFollowing ? "Following" : "Follow"}
+      {isFollowing ? (
+        <>
+          <UserCheck className="h-4 w-4 mr-1" />
+          Following
+        </>
+      ) : (
+        <>
+          <UserPlus className="h-4 w-4 mr-1" />
+          Follow
+        </>
+      )}
     </Button>
   );
 }

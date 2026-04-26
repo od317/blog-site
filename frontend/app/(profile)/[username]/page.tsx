@@ -31,7 +31,7 @@ async function getProfile(username: string): Promise<UserProfile | null> {
       },
       next: {
         tags: [`profile-${username}`],
-        revalidate: 60, // ISR: revalidate every 60 seconds
+        revalidate: 60,
       },
     });
 
@@ -128,20 +128,20 @@ export async function generateStaticParams() {
 // ============================================
 function ProfileHeaderSkeleton() {
   return (
-    <div className="rounded-lg bg-white p-6 shadow-sm">
+    <div className="rounded-xl border border-primary-500/10 bg-card p-6">
       <div className="flex flex-col items-center animate-pulse">
-        <div className="h-32 w-32 rounded-full bg-gray-200" />
-        <div className="mt-4 h-6 w-48 rounded bg-gray-200" />
-        <div className="mt-2 h-4 w-32 rounded bg-gray-200" />
+        <div className="h-32 w-32 rounded-full bg-primary-500/10 ring-4 ring-primary-500/10" />
+        <div className="mt-4 h-6 w-48 rounded bg-primary-500/10" />
+        <div className="mt-2 h-4 w-32 rounded bg-primary-500/10" />
         <div className="mt-4 flex gap-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="text-center">
-              <div className="h-6 w-12 rounded bg-gray-200" />
-              <div className="mt-1 h-3 w-8 rounded bg-gray-200" />
+              <div className="h-6 w-12 rounded bg-primary-500/10" />
+              <div className="mt-1 h-3 w-8 rounded bg-primary-500/10" />
             </div>
           ))}
         </div>
-        <div className="mt-4 h-9 w-24 rounded bg-gray-200" />
+        <div className="mt-4 h-9 w-24 rounded bg-primary-500/10" />
       </div>
     </div>
   );
@@ -153,12 +153,12 @@ function ProfilePostsSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="rounded-lg bg-white p-6 shadow-sm animate-pulse"
+          className="rounded-xl border border-primary-500/10 bg-card p-6 animate-pulse"
         >
-          <div className="h-56 w-full rounded-lg bg-gray-200" />
-          <div className="mt-4 h-6 w-3/4 rounded bg-gray-200" />
-          <div className="mt-2 h-4 w-1/4 rounded bg-gray-200" />
-          <div className="mt-3 h-16 w-full rounded bg-gray-200" />
+          <div className="h-56 w-full rounded-lg bg-primary-500/10" />
+          <div className="mt-4 h-6 w-3/4 rounded bg-primary-500/10" />
+          <div className="mt-2 h-4 w-1/4 rounded bg-primary-500/10" />
+          <div className="mt-3 h-16 w-full rounded bg-primary-500/10" />
         </div>
       ))}
     </div>
@@ -171,7 +171,6 @@ function ProfilePostsSkeleton() {
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
 
-  // Parallel data fetching
   const [profile, initialPostsData] = await Promise.all([
     getProfile(username),
     getProfilePosts(username, 0, POSTS_PER_PAGE),
@@ -182,8 +181,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="min-h-screen">
+      {/* Top gradient */}
+      <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-primary-500/5 to-transparent pointer-events-none" />
+      
+      <div className="mx-auto max-w-4xl px-4 py-8 relative">
         <Suspense fallback={<ProfileHeaderSkeleton />}>
           <ProfileHeader initialProfile={profile} />
         </Suspense>

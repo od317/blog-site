@@ -3,6 +3,7 @@
 
 import { memo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
+import { Camera, X } from "lucide-react";
 
 interface ProfileAvatarProps {
   username: string;
@@ -28,7 +29,6 @@ export const ProfileAvatar = memo(function ProfileAvatar({
 
   const displayUrl = previewUrl || avatarUrl;
 
-  // Clean up preview URL on unmount
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -41,7 +41,6 @@ export const ProfileAvatar = memo(function ProfileAvatar({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validation
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file");
       return;
@@ -52,7 +51,6 @@ export const ProfileAvatar = memo(function ProfileAvatar({
       return;
     }
 
-    // Show preview
     const newPreviewUrl = URL.createObjectURL(file);
     setPreviewUrl(newPreviewUrl);
 
@@ -60,7 +58,6 @@ export const ProfileAvatar = memo(function ProfileAvatar({
       await onAvatarUpload(file);
     } finally {
       setPreviewUrl(null);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -82,7 +79,7 @@ export const ProfileAvatar = memo(function ProfileAvatar({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`relative h-32 w-32 overflow-hidden rounded-full ${
+        className={`relative h-32 w-32 overflow-hidden rounded-full ring-4 ring-primary-500/20 hover:ring-primary-400/40 transition-all ${
           isOwnProfile ? "cursor-pointer" : ""
         }`}
         onClick={() => isOwnProfile && fileInputRef.current?.click()}
@@ -90,7 +87,7 @@ export const ProfileAvatar = memo(function ProfileAvatar({
         {displayUrl ? (
           <>
             {!isLoaded && (
-              <div className="absolute inset-0 animate-pulse bg-gray-200" />
+              <div className="absolute inset-0 animate-pulse bg-primary-500/10" />
             )}
             <Image
               src={displayUrl}
@@ -108,40 +105,22 @@ export const ProfileAvatar = memo(function ProfileAvatar({
             />
           </>
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-4xl font-bold text-white">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-500 to-accent-500 text-4xl font-bold text-white">
             {username[0]?.toUpperCase()}
           </div>
         )}
 
         {/* Hover overlay for own profile */}
         {isOwnProfile && isHovered && !isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <svg
-              className="h-8 w-8 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <Camera className="h-8 w-8 text-white" />
           </div>
         )}
 
         {/* Uploading indicator */}
         {isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-400 border-t-transparent" />
           </div>
         )}
       </div>
@@ -161,22 +140,10 @@ export const ProfileAvatar = memo(function ProfileAvatar({
       {isOwnProfile && displayUrl && !isUploading && isHovered && (
         <button
           onClick={handleDelete}
-          className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1.5 text-white shadow-lg hover:bg-red-600 transition-colors"
+          className="absolute -right-2 -top-2 rounded-full bg-accent-500 p-1.5 text-white shadow-[0_0_10px_rgba(236,72,153,0.3)] hover:bg-accent-400 transition-all"
           title="Delete avatar"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <X className="h-4 w-4" />
         </button>
       )}
     </div>

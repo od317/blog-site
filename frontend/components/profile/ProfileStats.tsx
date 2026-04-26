@@ -1,3 +1,4 @@
+// components/profile/ProfileStats.tsx
 "use client";
 
 interface ProfileStatsProps {
@@ -21,11 +22,13 @@ export function ProfileStats({
   ];
 
   return (
-    <div className="mt-4 flex gap-6">
+    <div className="mt-6 flex gap-8">
       {stats.map((stat) => (
-        <div key={stat.label} className="text-center">
-          <div className="text-xl font-bold text-gray-900">{stat.value}</div>
-          <div className="text-sm text-gray-500">{stat.label}</div>
+        <div key={stat.label} className="text-center group">
+          <div className="text-xl font-bold text-foreground group-hover:text-primary-400 transition-colors">
+            {stat.value}
+          </div>
+          <div className="text-sm text-muted-foreground">{stat.label}</div>
         </div>
       ))}
     </div>

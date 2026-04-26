@@ -1,3 +1,4 @@
+// components/profile/ProfileHeader.tsx
 "use client";
 
 import { useState, useCallback } from "react";
@@ -92,7 +93,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
 
   return (
     <>
-      <div className="rounded-lg bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-primary-500/10 bg-card shadow-[0_0_20px_rgba(6,182,212,0.05)] p-6">
         <div className="flex flex-col items-center">
           <ProfileAvatar
             username={initialProfile.username}

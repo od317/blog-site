@@ -7,6 +7,7 @@ import { PostCard } from "./PostCard";
 import { PostSkeleton } from "./PostSkeleton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Card } from "@/components/ui/Card";
+import { FileText, CheckCircle2 } from "lucide-react";
 
 export function PostList() {
   const { posts, isLoading, isFetchingMore, error, hasMore, fetchMorePosts } =
@@ -15,7 +16,6 @@ export function PostList() {
   const observerRef = useRef<IntersectionObserver>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Intersection Observer for infinite scroll
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       const target = entries[0];
@@ -36,7 +36,7 @@ export function PostList() {
 
     observerRef.current = new IntersectionObserver(handleObserver, {
       root: null,
-      rootMargin: "100px", // Start loading before reaching the element
+      rootMargin: "100px",
       threshold: 0.1,
     });
 
@@ -55,7 +55,7 @@ export function PostList() {
   // Loading state - initial
   if (isLoading && posts.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PostSkeleton />
         <PostSkeleton />
         <PostSkeleton />
@@ -66,12 +66,22 @@ export function PostList() {
   // Error state
   if (error) {
     return (
-      <Card className="p-4 text-center text-red-600">
-        <p className="font-medium">Error loading posts</p>
-        <p className="mt-1 text-sm">{error}</p>
+      <Card className="p-6 text-center border-accent-500/30">
+        <div className="text-accent-400 mb-3">
+          <svg className="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
+          </svg>
+        </div>
+        <p className="font-semibold text-foreground">Error loading posts</p>
+        <p className="mt-1 text-sm text-muted-foreground">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-3 text-sm text-blue-600 hover:underline"
+          className="mt-4 rounded-lg border border-primary-500/30 px-4 py-2 text-sm font-medium text-primary-400 hover:bg-primary-500/10 transition-all"
         >
           Try again
         </button>
@@ -82,19 +92,12 @@ export function PostList() {
   // Empty state
   if (posts.length === 0 && !isLoading) {
     return (
-      <Card className="p-8 text-center">
-        <div className="mx-auto mb-4 h-16 w-16 text-gray-400">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
-            />
-          </svg>
+      <Card className="p-8 text-center border-primary-500/20">
+        <div className="mx-auto mb-4 text-primary-400">
+          <FileText className="h-16 w-16 mx-auto opacity-50" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900">No posts yet</h3>
-        <p className="mt-1 text-gray-500">
+        <h3 className="text-lg font-semibold text-foreground">No posts yet</h3>
+        <p className="mt-1 text-muted-foreground">
           Be the first to share your thoughts with the community!
         </p>
       </Card>
@@ -103,7 +106,7 @@ export function PostList() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {posts.map((post, index) => (
           <PostCard
             key={`${post.id}-${post.updated_at || index}`}
@@ -122,28 +125,19 @@ export function PostList() {
 
         {!hasMore && posts.length > 0 && (
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-600">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary-500/20 bg-primary-500/5 px-4 py-2 text-sm text-primary-400">
+              <CheckCircle2 className="h-4 w-4" />
               You are all caught up! 🎉
             </div>
           </div>
         )}
 
         {hasMore && !isFetchingMore && (
-          <div className="text-center text-sm text-gray-400">
-            Scroll for more posts
+          <div className="text-center">
+            <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="inline-block h-1 w-1 rounded-full bg-primary-400 animate-pulse" />
+              Scroll for more posts
+            </p>
           </div>
         )}
       </div>

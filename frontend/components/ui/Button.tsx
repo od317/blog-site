@@ -1,4 +1,6 @@
+// components/ui/Button.tsx
 import { ButtonHTMLAttributes, ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
@@ -19,21 +21,23 @@ export function Button({
   ...props
 }: ButtonProps) {
   const baseStyles =
-    "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
 
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
+    primary:
+      "bg-primary-500 text-white hover:bg-primary-400 focus:ring-primary-500 shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_20px_rgba(6,182,212,0.5)]",
     secondary:
-      "bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500",
-    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+      "bg-muted text-foreground hover:bg-muted/80 focus:ring-primary-500 border border-primary-500/10",
+    danger:
+      "bg-accent-500 text-white hover:bg-accent-400 focus:ring-accent-500 shadow-[0_0_15px_rgba(236,72,153,0.3)] hover:shadow-[0_0_20px_rgba(236,72,153,0.5)]",
     outline:
-      "border-2 border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500",
+      "border border-primary-500/30 text-primary-400 hover:bg-primary-500/10 hover:border-primary-400/50 focus:ring-primary-500",
   };
 
   const sizes = {
     sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base",
   };
 
   const widthClass = fullWidth ? "w-full" : "";
@@ -45,7 +49,7 @@ export function Button({
       {...props}
     >
       {isLoading && (
-        <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       )}
       {children}
     </button>

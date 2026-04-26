@@ -8,6 +8,7 @@ function getBackendUrl(): string {
 export async function POST(request: NextRequest) {
   try {
     // Check content type to determine how to parse the body
+    console.log("the route iss");
     const contentType = request.headers.get("content-type") || "";
 
     const headers: Record<string, string> = {};

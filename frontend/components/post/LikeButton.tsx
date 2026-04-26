@@ -1,3 +1,4 @@
+// components/post/LikeButton.tsx
 "use client";
 
 import { useLikeActions } from "@/lib/hooks/Likes/useLikeActions";
@@ -5,6 +6,8 @@ import { useLikeRealtime } from "@/lib/hooks/Likes/useLikeRealtime";
 import { useLikeState } from "@/lib/hooks/Likes/useLikeState";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface LikeButtonProps {
   postId: string;
@@ -43,11 +46,9 @@ export function LikeButton({
     },
   });
 
-  // ✅ Pass current user ID to real-time hook
   useLikeRealtime({
     postId,
     onLikeUpdated: (postId, newLikeCount, action, shouldUpdateUserStatus) => {
-      // Only update user's like status if this event is from the current user
       const newHasLiked = shouldUpdateUserStatus
         ? action === "liked"
         : hasLiked;
@@ -66,11 +67,9 @@ export function LikeButton({
 
     const { newHasLiked, newLikeCount } = optimisticUpdate();
 
-    // Optimistic update
     updateLike(newLikeCount, newHasLiked);
     setLoading(true);
 
-    // Make API call
     await handleLike(newHasLiked);
   };
 
@@ -78,12 +77,30 @@ export function LikeButton({
     <button
       onClick={handleClick}
       disabled={isLiking}
-      className={`flex items-center gap-1 transition-colors ${
-        hasLiked ? "text-red-500" : "text-gray-500 hover:text-red-400"
+      className={`flex items-center gap-1.5 transition-all ${
+        hasLiked
+          ? "text-accent-400"
+          : "text-muted-foreground hover:text-accent-400"
       } ${isLiking ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
     >
-      <span>{hasLiked ? "❤️" : "🤍"}</span>
-      <span className="text-sm">{likeCount}</span>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={hasLiked ? "liked" : "unliked"}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          <Heart
+            className={`h-5 w-5 ${
+              hasLiked
+                ? "fill-accent-400 text-accent-400"
+                : "text-current"
+            } ${hasLiked ? "drop-shadow-[0_0_6px_rgba(236,72,153,0.5)]" : ""}`}
+          />
+        </motion.div>
+      </AnimatePresence>
+      <span className="text-sm font-medium">{likeCount}</span>
     </button>
   );
 }

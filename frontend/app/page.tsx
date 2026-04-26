@@ -22,12 +22,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <div className="container mx-auto px-4 py-8">
       {/* Header with Sort */}
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">
-          {sort === "latest"
-            ? "Latest Posts"
-            : sort === "popular"
-              ? "Popular Posts"
-              : "Posts"}
+        <h1 className="text-3xl font-bold">
+          <span className="bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+            {sort === "latest"
+              ? "Latest Posts"
+              : sort === "popular"
+                ? "Popular Posts"
+                : "Posts"}
+          </span>
         </h1>
 
         <SortSelector currentSort={sort} />

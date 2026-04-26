@@ -1,4 +1,4 @@
-// components/post/PostCard.tsx (simplified version)
+// components/post/PostCard.tsx
 "use client";
 
 import Link from "next/link";
@@ -8,6 +8,7 @@ import { LikeButton } from "@/components/post/LikeButton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { OptimizedAvatar } from "@/components/ui/OptimizedAvatar";
 import { OptimizedFeaturedImage } from "@/components/ui/OptimizedFeaturedImage";
+import { MessageCircle, ArrowRight } from "lucide-react";
 
 interface PostCardProps {
   post: {
@@ -38,7 +39,7 @@ export const PostCard = memo(
       post.excerpt || post.content.substring(0, 200) + "...";
 
     return (
-      <article className="group rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md overflow-hidden">
+      <article className="group rounded-xl border border-primary-500/10 bg-card hover:border-primary-500/30 hover:shadow-[0_0_20px_rgba(6,182,212,0.1)] transition-all duration-300 overflow-hidden">
         <Link href={`/posts/${post.id}`} className="block">
           {/* Featured Image */}
           {post.image_url && (
@@ -52,7 +53,7 @@ export const PostCard = memo(
           <div className="p-6">
             {/* Author info */}
             {post.username && (
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-3 mb-3">
                 <OptimizedAvatar
                   src={post.avatar_url}
                   alt={post.username}
@@ -61,10 +62,10 @@ export const PostCard = memo(
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900 truncate">
+                    <span className="font-semibold text-foreground truncate">
                       {post.username}
                     </span>
-                    <span className="text-xs text-gray-500 flex-shrink-0">
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
                       {formattedDate}
                     </span>
                   </div>
@@ -73,27 +74,30 @@ export const PostCard = memo(
             )}
 
             {/* Title */}
-            <h2 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+            <h2 className="text-xl font-semibold text-foreground group-hover:text-primary-400 transition-colors line-clamp-2">
               {post.title}
             </h2>
 
             {/* Meta info */}
             {post.readingTime && (
-              <div className="mt-2 flex items-center gap-3 text-sm text-gray-500">
+              <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
                 <span>{post.readingTime}</span>
               </div>
             )}
 
             {/* Excerpt */}
-            <p className="mt-3 text-gray-600 line-clamp-3">{displayExcerpt}</p>
+            <p className="mt-3 text-muted-foreground line-clamp-3">
+              {displayExcerpt}
+            </p>
 
             {/* Read more */}
-            <span className="inline-block mt-2 text-sm text-blue-600 group-hover:text-blue-700 font-medium">
-              Read more →
+            <span className="inline-flex items-center gap-1 mt-3 text-sm text-primary-400 group-hover:text-accent-400 font-medium transition-colors">
+              Read more
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </span>
 
             {/* Stats */}
-            <div className="mt-4 flex items-center gap-4 pt-3 border-t border-gray-100">
+            <div className="mt-4 flex items-center gap-4 pt-3 border-t border-primary-500/10">
               <LikeButton
                 postId={post.id}
                 initialLikeCount={post.like_count}
@@ -105,34 +109,23 @@ export const PostCard = memo(
                   e.preventDefault();
                   window.location.href = `/posts/${post.id}#comments`;
                 }}
-                className="flex items-center gap-1 text-gray-500 hover:text-blue-500 transition-colors"
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-primary-400 transition-colors"
               >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
+                <MessageCircle className="h-5 w-5" />
                 <span className="text-sm">{post.comment_count}</span>
               </button>
             </div>
 
-            {/* Error & Pending states */}
+            {/* Error state */}
             {post.error && (
-              <div className="mt-3 text-sm text-red-600 bg-red-50 p-2 rounded">
+              <div className="mt-3 text-sm text-accent-400 bg-accent-500/10 border border-accent-500/20 p-2 rounded-lg">
                 Failed to post: {post.error}
               </div>
             )}
 
+            {/* Pending state */}
             {post.isPending && (
-              <div className="mt-3 text-sm text-gray-500 flex items-center gap-2">
+              <div className="mt-3 text-sm text-muted-foreground flex items-center gap-2">
                 <LoadingSpinner size="sm" />
                 Posting...
               </div>

@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthStore>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true,
       error: null,
 
       login: async (email: string, password: string) => {

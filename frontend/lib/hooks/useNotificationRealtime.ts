@@ -14,7 +14,7 @@ interface NotificationSocketData {
 export function useNotificationRealtime() {
   const { isAuthenticated, user } = useAuthStore();
   const { incrementUnreadCount, fetchNotifications } = useNotificationStore();
-
+  console.log("notifications real time created")
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 

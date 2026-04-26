@@ -10,7 +10,7 @@ export async function PUT(
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
 
-    console.log("📡 Updating post:", id);
+    console.log("📡 Updating pos:", id);
     console.log("📡 Cookies present:", !!cookieString);
 
     // Check content type to determine how to parse

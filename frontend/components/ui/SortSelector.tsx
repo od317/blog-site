@@ -3,6 +3,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePostStore } from "@/lib/store/postStore";
+import { ArrowUpDown } from "lucide-react";
 
 interface SortSelectorProps {
   currentSort: string;
@@ -20,10 +21,8 @@ export function SortSelector({ currentSort }: SortSelectorProps) {
   const resetPagination = usePostStore((state) => state.resetPagination);
 
   const handleSortChange = (sort: string) => {
-    // Reset pagination before changing sort
     resetPagination();
 
-    // Update URL with new sort parameter
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", sort);
     router.push(`/?${params.toString()}`);
@@ -31,11 +30,17 @@ export function SortSelector({ currentSort }: SortSelectorProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-sm text-gray-600">Sort by:</label>
+      <ArrowUpDown className="h-4 w-4 text-primary-400" />
+      <label className="text-sm text-muted-foreground hidden sm:inline">
+        Sort by:
+      </label>
       <select
         value={currentSort}
         onChange={(e) => handleSortChange(e.target.value)}
-        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="appearance-none rounded-lg border border-primary-500/20 bg-card px-3 py-1.5 pr-8 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400/50 transition-all cursor-pointer hover:border-primary-400/50 bg-[length:16px] bg-[center_right_0.5rem] bg-no-repeat"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2306b6d4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+        }}
       >
         {sortOptions.map((option) => (
           <option key={option.value} value={option.value}>

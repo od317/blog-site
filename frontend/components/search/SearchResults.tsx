@@ -1,8 +1,10 @@
+// components/search/SearchResults.tsx
 import { cookies } from "next/headers";
 import Link from "next/link";
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { LikeButton } from "@/components/post/LikeButton";
+import { MessageCircle, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Search } from "lucide-react";
 
 interface SearchResultPost {
   id: string;
@@ -94,9 +96,10 @@ export async function SearchResults({
 
   if (!data || data.posts.length === 0) {
     return (
-      <div className="mt-8 rounded-lg bg-white p-12 text-center shadow-sm">
-        <p className="text-gray-500">No results found for {query}</p>
-        <p className="mt-2 text-sm text-gray-400">
+      <div className="mt-8 rounded-xl border border-primary-500/10 bg-card p-12 text-center">
+        <Search className="h-12 w-12 text-primary-400 mx-auto mb-4 opacity-50" />
+        <p className="text-foreground font-medium">No results found for {query}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
           Try different keywords or browse the feed
         </p>
       </div>
@@ -110,9 +113,8 @@ export async function SearchResults({
   return (
     <div className="mt-8">
       {/* Results count */}
-      <p className="mb-4 text-sm text-gray-500">
-        Found {pagination.total} result{pagination.total !== 1 ? "s" : ""} for
-        {query}
+      <p className="mb-4 text-sm text-muted-foreground">
+        Found <span className="text-primary-400 font-medium">{pagination.total}</span> result{pagination.total !== 1 ? "s" : ""} for {query}
       </p>
 
       {/* Results list */}
@@ -122,13 +124,14 @@ export async function SearchResults({
             {/* Featured Image */}
             {post.image_url && (
               <Link href={`/posts/${post.id}`}>
-                <div className="relative h-48 w-full overflow-hidden bg-gray-100 cursor-pointer">
+                <div className="relative h-48 w-full overflow-hidden bg-muted cursor-pointer">
                   <Image
                     src={post.image_url}
                     alt={post.title}
                     fill
                     className="object-cover transition-transform duration-300 hover:scale-105"
                   />
+                  <div className="absolute inset-0 ring-1 ring-inset ring-primary-500/10 pointer-events-none" />
                 </div>
               </Link>
             )}
@@ -137,7 +140,7 @@ export async function SearchResults({
               {/* Author info */}
               <div className="mb-3 flex items-center gap-2">
                 {post.avatar_url ? (
-                  <div className="relative h-8 w-8 overflow-hidden rounded-full">
+                  <div className="relative h-8 w-8 overflow-hidden rounded-full ring-1 ring-primary-500/20">
                     <Image
                       src={post.avatar_url}
                       alt={post.username}
@@ -146,18 +149,18 @@ export async function SearchResults({
                     />
                   </div>
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-medium text-white">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-accent-500 text-sm font-medium text-white ring-1 ring-primary-500/20">
                     {post.username?.[0]?.toUpperCase()}
                   </div>
                 )}
                 <div>
                   <Link
                     href={`/profile/${post.username}`}
-                    className="font-semibold text-gray-900 hover:text-blue-600 transition-colors"
+                    className="font-semibold text-foreground hover:text-primary-400 transition-colors"
                   >
                     {post.full_name || post.username}
                   </Link>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {formatDate(post.created_at)} · {post.readingTime}
                   </p>
                 </div>
@@ -165,32 +168,33 @@ export async function SearchResults({
 
               {/* Title */}
               <Link href={`/posts/${post.id}`}>
-                <h2 className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2">
+                <h2 className="text-xl font-semibold text-foreground hover:text-primary-400 transition-colors line-clamp-2">
                   {post.title}
                 </h2>
               </Link>
 
               {/* Excerpt */}
-              <p className="mt-2 text-gray-600 line-clamp-3">{post.excerpt}</p>
+              <p className="mt-2 text-muted-foreground line-clamp-3">{post.excerpt}</p>
 
               {/* Read more */}
               <Link
                 href={`/posts/${post.id}`}
-                className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="inline-flex items-center gap-1 mt-3 text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors group"
               >
-                Read more →
+                Read more
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
 
               {/* Actions */}
-              <div className="mt-4 flex items-center gap-4 pt-3 border-t border-gray-100">
+              <div className="mt-4 flex items-center gap-4 pt-3 border-t border-primary-500/10">
                 <LikeButton
                   postId={post.id}
                   initialLikeCount={post.like_count}
                   initialHasLiked={post.user_has_liked}
                 />
                 <Link href={`/posts/${post.id}#comments`}>
-                  <button className="flex items-center gap-1 text-gray-500 hover:text-blue-500 transition-colors">
-                    <span>💬</span>
+                  <button className="flex items-center gap-1.5 text-muted-foreground hover:text-primary-400 transition-colors">
+                    <MessageCircle className="h-5 w-5" />
                     <span className="text-sm">{post.comment_count}</span>
                   </button>
                 </Link>
@@ -201,25 +205,39 @@ export async function SearchResults({
       </div>
 
       {/* Pagination */}
-      <div className="mt-8 flex justify-center gap-4">
-        {prevPage >= 1 && (
+      <div className="mt-8 flex justify-center items-center gap-4">
+        {prevPage >= 1 ? (
           <Link
             href={`/search?q=${encodeURIComponent(query)}&page=${prevPage}`}
-            className="px-4 py-2 text-sm text-blue-500 hover:text-blue-600 transition-colors"
+            className="flex items-center gap-1 px-4 py-2 text-sm text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 rounded-lg transition-all"
           >
-            ← Previous
+            <ChevronLeft className="h-4 w-4" />
+            Previous
           </Link>
+        ) : (
+          <span className="flex items-center gap-1 px-4 py-2 text-sm text-muted-foreground/50 cursor-not-allowed">
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </span>
         )}
-        <span className="px-4 py-2 text-sm text-gray-500">
+        
+        <span className="px-4 py-2 text-sm text-muted-foreground">
           Page {page} of {Math.ceil(pagination.total / limit)}
         </span>
-        {pagination.hasMore && (
+        
+        {pagination.hasMore ? (
           <Link
             href={`/search?q=${encodeURIComponent(query)}&page=${nextPage}`}
-            className="px-4 py-2 text-sm text-blue-500 hover:text-blue-600 transition-colors"
+            className="flex items-center gap-1 px-4 py-2 text-sm text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 rounded-lg transition-all"
           >
-            Next →
+            Next
+            <ChevronRight className="h-4 w-4" />
           </Link>
+        ) : (
+          <span className="flex items-center gap-1 px-4 py-2 text-sm text-muted-foreground/50 cursor-not-allowed">
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </span>
         )}
       </div>
     </div>

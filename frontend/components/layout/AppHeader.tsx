@@ -4,81 +4,84 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
-import { Button } from "@/components/ui/Button";
+import { ThemeToggle } from "./ThemeToggle";
+import { Search, Bookmark } from "lucide-react";
+import { NavbarSkeleton } from "./NavbarSkeleton";
 
 export function AppHeader() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+
+  if (isLoading) return <NavbarSkeleton />;
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-primary-500/20 bg-background/80 backdrop-blur-lg">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo/Brand */}
-          <Link href="/" className="text-xl font-bold text-gray-900">
+          <Link 
+            href="/" 
+            className="text-xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent hover:from-primary-300 hover:to-accent-300 transition-all"
+          >
             Blog App
           </Link>
 
           {/* Navigation */}
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-1">
             {isAuthenticated ? (
               <>
-                {/* Search */}
                 <Link
                   href="/search"
-                  className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  className="rounded-lg p-2 text-muted-foreground hover:text-primary-400 hover:bg-primary-500/10 transition-all"
                   aria-label="Search"
                 >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+                  <Search className="h-5 w-5" />
                 </Link>
 
-                {/* Saved Posts */}
                 <Link
                   href="/saved"
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-accent-400 hover:bg-accent-500/10 transition-all"
                 >
-                  Saved
+                  <Bookmark className="h-4 w-4" />
+                  <span className="hidden sm:inline">Saved</span>
                 </Link>
 
-                {/* Notifications */}
                 <NotificationBell />
 
-                {/* User Menu */}
-                <div className="flex items-center gap-3 border-l pl-4">
-                  <span className="text-sm text-gray-600">
+                <div className="flex items-center gap-3 border-l border-primary-500/20 pl-4 ml-2">
+                  <span className="text-sm text-foreground/80 hidden sm:inline">
                     {user?.username}
                   </span>
-                  <Button variant="outline" size="sm" onClick={() => logout()}>
+                  <button
+                    onClick={() => logout()}
+                    className="rounded-lg border border-primary-500/30 px-3 py-1.5 text-sm font-medium text-primary-400 hover:bg-primary-500/10 hover:border-primary-400/50 transition-all"
+                  >
                     Logout
-                  </Button>
+                  </button>
                 </div>
               </>
             ) : (
               <>
-                <Link href="/search">
-                  <Button size="sm">Search</Button>
+                <Link
+                  href="/search"
+                  className="rounded-lg p-2 text-muted-foreground hover:text-primary-400 hover:bg-primary-500/10 transition-all"
+                >
+                  <Search className="h-5 w-5" />
                 </Link>
-                <Link href="/login">
-                  <Button variant="outline" size="sm">
-                    Sign In
-                  </Button>
+                <Link
+                  href="/login"
+                  className="rounded-lg border border-primary-500/30 px-4 py-1.5 text-sm font-medium text-primary-400 hover:bg-primary-500/10 hover:border-primary-400/50 transition-all"
+                >
+                  Sign In
                 </Link>
-                <Link href="/register">
-                  <Button size="sm">Sign Up</Button>
+                <Link
+                  href="/register"
+                  className="rounded-lg bg-primary-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-400 shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_20px_rgba(6,182,212,0.5)] transition-all"
+                >
+                  Sign Up
                 </Link>
               </>
             )}
+            <ThemeToggle />
           </nav>
         </div>
       </div>

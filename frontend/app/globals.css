@@ -1,52 +1,90 @@
+/* app/globals.css */
 @import "tailwindcss";
 
 @theme {
-  /* In v4, defining a variable starting with --color- inside @theme 
-     automatically creates utilities like bg-primary, text-primary, etc.
-  */
-  --navbar-bg: #EBF8FC;
-  --navbar-text: #094A7C;
-  --color-blue-500: #37B6E3;
-  /* Add navbar colors to theme */
-  --color-navbar-bg: var(--navbar-bg);
-  --color-navbar-text: var(--navbar-text);
+  /* Neon Primary - Cyan */
+  --color-primary-50: #ecfeff;
+  --color-primary-100: #cffafe;
+  --color-primary-200: #a5f3fc;
+  --color-primary-300: #67e8f9;
+  --color-primary-400: #22d3ee;
+  --color-primary-500: #06b6d4;
+  --color-primary-600: #0891b2;
+  --color-primary-700: #0e7490;
+  --color-primary-800: #155e75;
+  --color-primary-900: #164e63;
+  --color-primary-950: #083344;
 
-  --color-mission-dark: #01393C;
-  --color-mission-light: #EBF8FC;
-  --color-curve-line: #216D88;
+  /* Neon Secondary - Magenta/Pink */
+  --color-accent-50: #fdf2f8;
+  --color-accent-100: #fce7f3;
+  --color-accent-200: #fbcfe8;
+  --color-accent-300: #f9a8d4;
+  --color-accent-400: #f472b6;
+  --color-accent-500: #ec4899;
+  --color-accent-600: #db2777;
+  --color-accent-700: #be185d;
+  --color-accent-800: #9d174d;
+  --color-accent-900: #831843;
+  --color-accent-950: #500724;
 
-  /* The Teal color from the design */
-  --color-primary: hsl(185 100% 40%);
-  --color-primary-foreground: hsl(0 0% 100%);
+  /* Neon Tertiary - Electric Purple */
+  --color-purple-400: #c084fc;
+  --color-purple-500: #a855f7;
+  --color-purple-600: #9333ea;
 
-  /* Background & Foreground */
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222 47% 11%);
+  /* Cyberpunk Yellow */
+  --color-yellow-400: #facc15;
+  --color-yellow-500: #eab308;
 
-  /* Add custom colors */
-  --color-job-ready-bg: #F4FEFF99;
-  /* With transparency */
-  --color-job-ready-bg-solid: #F4FEFF;
+  /* Dark backgrounds */
+  --color-dark-900: #0a0a0f;
+  --color-dark-800: #131320;
+  --color-dark-700: #1a1a2e;
+  --color-dark-600: #25253e;
 
-  /* Footer colors */
-  --color-footer-bg: #F2F2F2;
-  --color-footer-bottom-bg: #113744;
-  --color-footer-text: #000000;
-  /* Black text */
+  /* Light backgrounds */
+  --color-light-50: #f0f0ff;
+  --color-light-100: #e4e4f0;
+  --color-light-200: #d1d1e0;
 
+  /* Light mode */
+  --color-background: #f0f0ff;
+  --color-foreground: #1a1a2e;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1a2e;
+  --color-border: #d1d1e0;
+  --color-muted: #e4e4f0;
+  --color-muted-foreground: #6b6b8a;
+  --color-navbar-bg: rgba(240, 240, 255, 0.9);
+  --color-navbar-text: #1a1a2e;
 
+  /* Neon glow effects - light mode */
+  --glow-primary: 0 0 10px rgba(6, 182, 212, 0.3), 0 0 20px rgba(6, 182, 212, 0.1);
+  --glow-accent: 0 0 10px rgba(236, 72, 153, 0.3), 0 0 20px rgba(236, 72, 153, 0.1);
 }
 
-/* Now that the colors are defined in the theme above, 
-   Tailwind knows what 'bg-background' and 'text-foreground' mean.
-*/
+.dark {
+  --color-background: #0a0a0f;
+  --color-foreground: #e4e4f0;
+  --color-card: #131320;
+  --color-card-foreground: #e4e4f0;
+  --color-border: #1a1a2e;
+  --color-muted: #1a1a2e;
+  --color-muted-foreground: #8b8ba8;
+  --color-navbar-bg: rgba(10, 10, 15, 0.9);
+  --color-navbar-text: #e4e4f0;
+
+  /* Neon glow effects - dark mode */
+  --glow-primary: 0 0 15px rgba(6, 182, 212, 0.4), 0 0 30px rgba(6, 182, 212, 0.2);
+  --glow-accent: 0 0 15px rgba(236, 72, 153, 0.4), 0 0 30px rgba(236, 72, 153, 0.2);
+}
+
 @layer base {
   body {
-    @apply bg-background text-foreground overflow-x-hidden;
+    @apply bg-background text-foreground;
   }
 }
-
-
 
 @layer utilities {
   .line-clamp-2 {
@@ -62,38 +100,29 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
   }
-}
 
-
-@layer components {
-  .swiper-pagination-bullet {
-    @apply w-2 h-2 bg-slate-300 opacity-100 transition-all duration-300;
+  /* Neon text effects */
+  .text-neon-cyan {
+    color: #06b6d4;
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 20px rgba(6, 182, 212, 0.3);
   }
 
-  .swiper-pagination-bullet-active {
-    @apply w-6 bg-primary;
-  }
-}
-
-
-@layer utilities {
-  .line-clamp-2 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+  .text-neon-pink {
+    color: #ec4899;
+    text-shadow: 0 0 10px rgba(236, 72, 153, 0.5), 0 0 20px rgba(236, 72, 153, 0.3);
   }
 
-  .line-clamp-3 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+  /* Neon border glow */
+  .border-neon {
+    box-shadow: var(--glow-primary);
+  }
+
+  /* Neon box shadow */
+  .shadow-neon {
+    box-shadow: var(--glow-primary);
   }
 }
 
-
-/* Add to globals.css */
 @keyframes float {
 
   0%,
@@ -120,8 +149,60 @@
   }
 }
 
+@keyframes neon-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes neon-flicker {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  41% {
+    opacity: 1;
+  }
+
+  42% {
+    opacity: 0.8;
+  }
+
+  43% {
+    opacity: 1;
+  }
+
+  45% {
+    opacity: 0.3;
+  }
+
+  46% {
+    opacity: 1;
+  }
+}
+
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+.animate-neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+.animate-neon-flicker {
+  animation: neon-flicker 3s linear infinite;
 }
 
 .animation-delay-1000 {

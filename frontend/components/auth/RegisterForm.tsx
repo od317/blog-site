@@ -1,3 +1,4 @@
+// components/auth/RegisterForm.tsx
 "use client";
 
 import { useState } from "react";
@@ -9,6 +10,7 @@ import { registerSchema, RegisterInput } from "@/lib/validations/auth";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { UserPlus } from "lucide-react";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -44,13 +46,13 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {serverError && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded-lg bg-accent-500/10 border border-accent-500/20 p-3 text-sm text-accent-400">
           {serverError}
         </div>
       )}
 
       {successMessage && (
-        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600">
+        <div className="rounded-lg bg-primary-500/10 border border-primary-500/20 p-3 text-sm text-primary-400">
           {successMessage}
         </div>
       )}
@@ -86,12 +88,16 @@ export function RegisterForm() {
       />
 
       <Button type="submit" isLoading={isLoading} fullWidth>
+        <UserPlus className="h-4 w-4 mr-2" />
         Sign Up
       </Button>
 
-      <p className="text-center text-sm text-gray-600">
+      <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="text-blue-600 hover:underline">
+        <Link
+          href="/login"
+          className="text-primary-400 hover:text-primary-300 transition-colors font-medium"
+        >
           Sign in
         </Link>
       </p>

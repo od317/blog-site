@@ -1,3 +1,4 @@
+// components/auth/LoginForm.tsx
 "use client";
 
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { setAuthTokens } from "@/app/actions/auth.actions";
+import { X, LogIn } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -18,8 +20,6 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [autoDismissTimer, setAutoDismissTimer] =
-    useState<NodeJS.Timeout | null>(null);
 
   const {
     register,
@@ -39,7 +39,6 @@ export function LoginForm() {
     setIsLoading(true);
 
     try {
-      // Call backend directly
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,10 +51,8 @@ export function LoginForm() {
       const result = await response.json();
 
       if (response.ok) {
-        // Store tokens in HttpOnly cookies via Server Action
         await setAuthTokens(result.accessToken, result.refreshToken);
 
-        // Update Zustand store
         useAuthStore.setState({
           user: result.user,
           isAuthenticated: true,
@@ -65,7 +62,6 @@ export function LoginForm() {
 
         setSuccessMessage("Login successful! Redirecting...");
 
-        // Redirect after short delay
         setTimeout(() => {
           router.push("/");
           router.refresh();
@@ -81,46 +77,34 @@ export function LoginForm() {
     }
   };
 
-  const dismissSuccessMessage = () => {
-    setSuccessMessage(null);
-    if (autoDismissTimer) {
-      clearTimeout(autoDismissTimer);
-      setAutoDismissTimer(null);
-    }
-  };
-
-  const dismissErrorMessage = () => {
-    setServerError(null);
-  };
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {/* Success Message */}
       {successMessage && (
-        <div className="relative rounded-lg bg-green-50 p-3 text-sm text-green-600">
+        <div className="relative rounded-lg bg-primary-500/10 border border-primary-500/20 p-3 text-sm text-primary-400">
           <span>{successMessage}</span>
           <button
             type="button"
-            onClick={dismissSuccessMessage}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-green-600 hover:text-green-800"
+            onClick={() => setSuccessMessage(null)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-primary-400 hover:text-primary-300 transition-colors"
             aria-label="Close"
           >
-            ×
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Error Message */}
       {serverError && (
-        <div className="relative rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div className="relative rounded-lg bg-accent-500/10 border border-accent-500/20 p-3 text-sm text-accent-400">
           <span>{serverError}</span>
           <button
             type="button"
-            onClick={dismissErrorMessage}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-red-600 hover:text-red-800"
+            onClick={() => setServerError(null)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-accent-400 hover:text-accent-300 transition-colors"
             aria-label="Close"
           >
-            ×
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -147,13 +131,17 @@ export function LoginForm() {
 
       {/* Submit Button */}
       <Button type="submit" isLoading={isLoading || isSubmitting} fullWidth>
+        <LogIn className="h-4 w-4 mr-2" />
         Sign In
       </Button>
 
       {/* Sign Up Link */}
-      <p className="text-center text-sm text-gray-600">
-        Do not have an account?{" "}
-        <Link href="/register" className="text-blue-600 hover:underline">
+      <p className="text-center text-sm text-muted-foreground">
+        {"Don't"} have an account?{" "}
+        <Link
+          href="/register"
+          className="text-primary-400 hover:text-primary-300 transition-colors font-medium"
+        >
           Sign up
         </Link>
       </p>

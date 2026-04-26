@@ -9,7 +9,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    console.log("🚀 Post Id:", id);
+    console.log("🚀 Post ID:", id);
 
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();

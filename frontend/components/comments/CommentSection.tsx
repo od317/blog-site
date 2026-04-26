@@ -1,3 +1,4 @@
+// components/comments/CommentSection.tsx
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -11,6 +12,7 @@ import {
   updateComment,
 } from "@/app/actions/comment.actions";
 import type { Comment } from "@/types/Post";
+import { MessageCircle } from "lucide-react";
 
 interface CommentSectionProps {
   postId: string;
@@ -22,7 +24,6 @@ interface CommentSectionProps {
 const generateTempId = () =>
   `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-// ✅ Helper function to update a comment in the nested tree
 const updateCommentInTree = (
   comments: Comment[],
   targetId: string,
@@ -50,7 +51,6 @@ export function CommentSection({ postId }: CommentSectionProps) {
   const [isLoading, setIsLoading] = useState(true);
   const tempToRealIdMap = useRef<Map<string, string>>(new Map());
 
-  // Fetch nested comments from API
   const fetchComments = useCallback(async () => {
     try {
       console.log("💬 Fetching nested comments for post:", postId);
@@ -74,7 +74,6 @@ export function CommentSection({ postId }: CommentSectionProps) {
     fetchComments();
   }, [fetchComments]);
 
-  // Real-time listeners for comments and replies
   useEffect(() => {
     const socket = getSocket();
     if (!socket) {
@@ -112,14 +111,12 @@ export function CommentSection({ postId }: CommentSectionProps) {
       }
     };
 
-    // ✅ FIX: Update comment in place instead of refetching
     const handleCommentUpdated = (data: {
       comment: Comment;
       postId: string;
     }) => {
       console.log("💬 Received comment-updated event:", data);
       if (data.postId === postId) {
-        // Update the comment in the existing state
         setComments((prev) =>
           updateCommentInTree(prev, data.comment.id, data.comment.content),
         );
@@ -210,11 +207,9 @@ export function CommentSection({ postId }: CommentSectionProps) {
     }
   };
 
-  // ✅ FIX: Update comment in place without refetch
   const handleUpdateComment = async (commentId: string, newContent: string) => {
     console.log("✏️ Updating comment:", { commentId, newContent });
 
-    // Optimistic update - update UI immediately
     setComments((prev) => updateCommentInTree(prev, commentId, newContent));
     setIsUpdating(true);
 
@@ -227,13 +222,12 @@ export function CommentSection({ postId }: CommentSectionProps) {
       console.log("✏️ updateComment result:", result);
 
       if (!result.success) {
-        // Revert on error - refetch to get original content
         console.error("✏️ Failed to update comment:", result.error);
         await fetchComments();
       }
     } catch (error) {
       console.error("✏️ Error updating comment:", error);
-      await fetchComments(); // Revert on error
+      await fetchComments();
     } finally {
       setIsUpdating(false);
     }
@@ -260,17 +254,20 @@ export function CommentSection({ postId }: CommentSectionProps) {
 
   if (isLoading) {
     return (
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-primary-500/10 bg-card p-6">
         <div className="flex justify-center py-8">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">Comments ({totalComments})</h3>
+    <div className="rounded-xl border border-primary-500/10 bg-card p-6">
+      <h3 className="mb-4 text-lg font-semibold flex items-center gap-2">
+        <MessageCircle className="h-5 w-5 text-primary-400" />
+        Comments ({totalComments})
+      </h3>
 
       <CommentForm
         postId={postId}
@@ -280,7 +277,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
 
       <div className="mt-6 space-y-4">
         {comments.length === 0 ? (
-          <p className="text-center text-gray-500">
+          <p className="text-center text-muted-foreground py-8">
             No comments yet. Be the first!
           </p>
         ) : (

@@ -21,32 +21,34 @@ export const PostAuthor = memo(function PostAuthor({
 
   return (
     <div className="flex items-center gap-3">
-      {avatarUrl ? (
-        <div className="relative h-10 w-10 overflow-hidden rounded-full">
-          <Image
-            src={avatarUrl}
-            alt={username}
-            fill
-            className="object-cover"
-            sizes="40px"
-            priority
-          />
-        </div>
-      ) : (
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
-          {username?.[0]?.toUpperCase()}
-        </div>
-      )}
+      <Link href={`/${username}`}>
+        {avatarUrl ? (
+          <div className="relative h-10 w-10 overflow-hidden rounded-full ring-2 ring-primary-500/30 hover:ring-primary-400/50 transition-all">
+            <Image
+              src={avatarUrl}
+              alt={username}
+              fill
+              className="object-cover"
+              sizes="40px"
+              priority
+            />
+          </div>
+        ) : (
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-accent-500 text-white font-medium ring-2 ring-primary-500/30 hover:ring-primary-400/50 transition-all">
+            {username?.[0]?.toUpperCase()}
+          </div>
+        )}
+      </Link>
 
       <div>
         <Link
           href={`/${username}`}
-          className="font-semibold hover:text-blue-600 transition-colors"
+          className="font-semibold text-foreground hover:text-primary-400 transition-colors"
         >
           {username}
         </Link>
         <p
-          className="text-xs text-gray-500 cursor-help"
+          className="text-xs text-muted-foreground cursor-help hover:text-primary-400 transition-colors"
           onClick={() => setShowFullDate(!showFullDate)}
           title={formatFullDate(createdAt)}
         >

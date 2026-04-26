@@ -16,7 +16,6 @@ export async function PUT(
     // Check content type to determine how to parse
     const contentType = request.headers.get("content-type") || "";
 
-    let body;
     const headers: Record<string, string> = {};
 
     if (cookieString) {
@@ -54,7 +53,7 @@ export async function PUT(
       return NextResponse.json(data);
     }
 
-    body = await request.json();
+    const body = await request.json();
 
     const response = await fetch(url, {
       method: "PUT",

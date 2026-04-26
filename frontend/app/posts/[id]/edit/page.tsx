@@ -1,3 +1,4 @@
+// app/posts/[id]/edit/page.tsx
 // ============================================
 // CACHING STRATEGY: Dynamic (no cache)
 // WHERE: Server-side
@@ -14,15 +15,14 @@ async function getPost(id: string): Promise<Post | null> {
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SERVER_API_URL;
+    const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/posts/${id}`;
 
     const response = await fetch(url, {
       headers: {
         Cookie: cookieString,
       },
-      cache: "no-store", // Don't cache edit page data
+      cache: "no-store",
     });
     console.log(response);
     if (!response.ok) {
@@ -50,8 +50,11 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="mx-auto max-w-3xl px-4 py-8">
+        {/* Decorative top gradient */}
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary-500/5 to-transparent pointer-events-none" />
+        
         <EditPostForm post={post} />
       </div>
     </div>

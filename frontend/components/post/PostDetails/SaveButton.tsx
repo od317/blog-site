@@ -1,3 +1,4 @@
+// components/post/PostDetails/SaveButton.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,6 +9,8 @@ import {
   unsavePost,
   getSaveStatus,
 } from "@/app/actions/save.actions";
+import { Bookmark } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SaveButtonProps {
   postId: string;
@@ -20,7 +23,6 @@ export function SaveButton({ postId }: SaveButtonProps) {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Check if post is saved using server action
   useEffect(() => {
     if (!isAuthenticated) {
       setIsLoading(false);
@@ -53,7 +55,6 @@ export function SaveButton({ postId }: SaveButtonProps) {
 
     setIsSubmitting(true);
 
-    // Optimistic update
     const newSaved = !isSaved;
     setIsSaved(newSaved);
 
@@ -66,12 +67,10 @@ export function SaveButton({ postId }: SaveButtonProps) {
       }
 
       if (!result.success) {
-        // Revert on error
         setIsSaved(!newSaved);
         console.error("Save action failed:", result.error);
       }
     } catch (error) {
-      // Revert on error
       setIsSaved(!newSaved);
       console.error("Save action failed:", error);
     } finally {
@@ -83,9 +82,9 @@ export function SaveButton({ postId }: SaveButtonProps) {
     return (
       <button
         disabled
-        className="flex items-center gap-1 text-gray-300 cursor-wait"
+        className="flex items-center gap-1.5 text-muted-foreground/50 cursor-wait"
       >
-        <span>☆</span>
+        <Bookmark className="h-5 w-5 animate-pulse" />
       </button>
     );
   }
@@ -94,12 +93,30 @@ export function SaveButton({ postId }: SaveButtonProps) {
     <button
       onClick={handleSaveToggle}
       disabled={isSubmitting}
-      className={`flex items-center gap-1 transition-colors ${
-        isSaved ? "text-yellow-500" : "text-gray-500 hover:text-yellow-400"
+      className={`flex items-center gap-1.5 transition-all ml-auto ${
+        isSaved
+          ? "text-primary-400"
+          : "text-muted-foreground hover:text-primary-400"
       } ${isSubmitting ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
       title={isSaved ? "Remove from saved" : "Save post"}
     >
-      <span>{isSaved ? "⭐" : "☆"}</span>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={isSaved ? "saved" : "unsaved"}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          <Bookmark
+            className={`h-5 w-5 ${
+              isSaved
+                ? "fill-primary-400 text-primary-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.5)]"
+                : ""
+            }`}
+          />
+        </motion.div>
+      </AnimatePresence>
     </button>
   );
 }

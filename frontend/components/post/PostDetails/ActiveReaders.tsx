@@ -1,7 +1,10 @@
+// components/post/PostDetails/ActiveReaders.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { getSocket, onReadersCountUpdated } from "@/lib/socket/client";
+import { Eye } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ActiveReadersProps {
   postId: string;
@@ -14,7 +17,6 @@ export function ActiveReaders({ postId }: ActiveReadersProps) {
     const socket = getSocket();
     if (!socket) return;
 
-    // Join the post room when component mounts
     if (socket.connected) {
       socket.emit("join-post", postId);
     } else {
@@ -23,7 +25,6 @@ export function ActiveReaders({ postId }: ActiveReadersProps) {
       });
     }
 
-    // Listen for reader count updates
     const unsubscribe = onReadersCountUpdated(
       ({ postId: updatedPostId, count }) => {
         if (updatedPostId === postId) {
@@ -32,7 +33,6 @@ export function ActiveReaders({ postId }: ActiveReadersProps) {
       },
     );
 
-    // Leave the post room when component unmounts
     return () => {
       if (unsubscribe) unsubscribe();
       if (socket && socket.connected) {
@@ -41,7 +41,6 @@ export function ActiveReaders({ postId }: ActiveReadersProps) {
     };
   }, [postId]);
 
-  // Don't show if no one else is reading (except current user)
   if (readerCount <= 1) {
     return null;
   }
@@ -53,9 +52,25 @@ export function ActiveReaders({ postId }: ActiveReadersProps) {
       : `${otherReaders} people are reading this`;
 
   return (
-    <div className="mb-4 flex items-center gap-2 border-b pb-3 text-sm text-gray-500">
-      <span>👁️</span>
-      <span>{message}</span>
-    </div>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="flex items-center gap-2 border-b border-primary-500/10 px-6 py-3 text-sm bg-primary-500/5"
+      >
+        <motion.div
+          animate={{ opacity: [1, 0.5, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <Eye className="h-4 w-4 text-primary-400" />
+        </motion.div>
+        <span className="text-muted-foreground">{message}</span>
+        <span className="ml-auto flex items-center gap-1">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400 animate-pulse shadow-[0_0_6px_rgba(6,182,212,0.5)]" />
+          <span className="text-xs text-primary-400">live</span>
+        </span>
+      </motion.div>
+    </AnimatePresence>
   );
 }

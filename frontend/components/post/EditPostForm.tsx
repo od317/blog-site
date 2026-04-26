@@ -1,3 +1,4 @@
+// components/post/EditPostForm.tsx
 "use client";
 
 import { useState, useRef } from "react";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import type { Post } from "@/types/Post";
 import { getSocket } from "@/lib/socket/client";
+import { Upload, X, Save, ArrowLeft, Trash2 } from "lucide-react";
 
 interface EditPostFormProps {
   post: Post;
@@ -80,14 +82,10 @@ export function EditPostForm({ post }: EditPostFormProps) {
       formData.append("content", content.trim());
 
       if (imageFile) {
-        // New image selected - upload it
         formData.append("image", imageFile);
       } else if (imagePreview === null && post.image_url) {
-        // User explicitly removed the image
         formData.append("removeImage", "true");
       }
-      // If no imageFile and imagePreview exists (keeping existing image)
-      // Don't append any image-related fields
 
       const response = await fetch(`/api/proxy/posts/${post.id}`, {
         method: "PUT",
@@ -148,10 +146,14 @@ export function EditPostForm({ post }: EditPostFormProps) {
   };
 
   return (
-    <Card>
-      <div className="mb-4 border-b pb-3">
-        <h1 className="text-xl font-semibold text-gray-900">Edit Post</h1>
-        <p className="text-sm text-gray-500">Make changes to your post</p>
+    <Card className="max-w-4xl mx-auto">
+      <div className="mb-6 border-b border-primary-500/10 pb-4">
+        <h1 className="text-xl font-semibold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+          Edit Post
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Make changes to your post
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -166,25 +168,37 @@ export function EditPostForm({ post }: EditPostFormProps) {
 
         {/* Image Upload Section */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             Featured Image
           </label>
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            onChange={handleImageChange}
-            disabled={isSubmitting || isDeleting}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-          />
-          <p className="mt-1 text-xs text-gray-500">
+          <div className="relative">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={handleImageChange}
+              disabled={isSubmitting || isDeleting}
+              className="hidden"
+              id="edit-file-upload"
+            />
+            <label
+              htmlFor="edit-file-upload"
+              className="flex items-center gap-2 w-full rounded-lg border border-primary-500/20 bg-card px-4 py-3 text-muted-foreground hover:border-primary-400/50 hover:text-primary-400 transition-all cursor-pointer"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="text-sm">
+                {imageFile ? imageFile.name : imagePreview ? "Change image..." : "Choose an image..."}
+              </span>
+            </label>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
             JPG, PNG, GIF, or WebP. Max 5MB.
           </p>
         </div>
 
         {/* Image Preview */}
         {imagePreview && (
-          <div className="relative rounded-lg border border-gray-200 p-2">
+          <div className="relative rounded-lg border border-primary-500/20 p-2">
             <div className="relative h-48 w-full overflow-hidden rounded-lg">
               <Image
                 src={imagePreview}
@@ -196,27 +210,15 @@ export function EditPostForm({ post }: EditPostFormProps) {
             <button
               type="button"
               onClick={removeImage}
-              className="absolute right-4 top-4 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+              className="absolute right-4 top-4 rounded-full bg-accent-500 p-1.5 text-white hover:bg-accent-400 shadow-[0_0_10px_rgba(236,72,153,0.3)] transition-all"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             Content
           </label>
           <textarea
@@ -225,38 +227,40 @@ export function EditPostForm({ post }: EditPostFormProps) {
             onChange={(e) => setContent(e.target.value)}
             disabled={isSubmitting || isDeleting}
             rows={12}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className="w-full rounded-lg border border-primary-500/20 bg-card px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400/50 disabled:opacity-50 transition-all resize-none"
           />
         </div>
 
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className="flex justify-between text-xs text-muted-foreground">
           <span>{content.length} characters</span>
           <span>~{Math.ceil(content.split(/\s+/).length / 200)} min read</span>
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          <div className="rounded-lg bg-accent-500/10 border border-accent-500/20 p-3 text-sm text-accent-400">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600">
+          <div className="rounded-lg bg-primary-500/10 border border-primary-500/20 p-3 text-sm text-primary-400">
             {success}
           </div>
         )}
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 pt-2">
           <Button
             type="submit"
             isLoading={isSubmitting}
             disabled={isDeleting || !title.trim() || !content.trim()}
           >
+            <Save className="h-4 w-4 mr-1" />
             Save Changes
           </Button>
 
           <Link href={`/posts/${post.id}`}>
             <Button variant="outline" disabled={isSubmitting || isDeleting}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
               Cancel
             </Button>
           </Link>
@@ -269,6 +273,7 @@ export function EditPostForm({ post }: EditPostFormProps) {
             disabled={isSubmitting}
             className="ml-auto"
           >
+            <Trash2 className="h-4 w-4 mr-1" />
             Delete Post
           </Button>
         </div>

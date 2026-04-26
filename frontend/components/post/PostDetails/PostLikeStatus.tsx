@@ -1,3 +1,4 @@
+// components/post/PostDetails/PostLikeStatus.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -5,6 +6,8 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { api } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
 import { useLikeRealtime } from "@/lib/hooks/Likes/useLikeRealtime";
+import { Heart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface PostLikeStatusProps {
   postId: string;
@@ -22,7 +25,6 @@ export function PostLikeStatus({
   const [isLoading, setIsLoading] = useState(true);
   const [isLiking, setIsLiking] = useState(false);
 
-  // Fetch like status
   useEffect(() => {
     if (isAuthLoading) {
       return;
@@ -58,7 +60,6 @@ export function PostLikeStatus({
     fetchLikeStatus();
   }, [postId, isAuthenticated, isAuthLoading]);
 
-  // Handle real-time like updates
   const handleLikeUpdate = useCallback(
     (
       updatedPostId: string,
@@ -76,10 +77,8 @@ export function PostLikeStatus({
         currentHasLiked: hasLiked,
       });
 
-      // Update like count
       setLikeCount(newLikeCount);
 
-      // Only update user's like status if this event is for the current user
       if (shouldUpdateUserStatus) {
         const newHasLiked = action === "liked";
         console.log("📡 Updating user like status to:", newHasLiked);
@@ -89,7 +88,6 @@ export function PostLikeStatus({
     [postId, hasLiked],
   );
 
-  // Set up real-time listener
   useLikeRealtime({
     postId,
     onLikeUpdated: handleLikeUpdate,
@@ -107,7 +105,6 @@ export function PostLikeStatus({
     const newHasLiked = !hasLiked;
     const newLikeCount = newHasLiked ? likeCount + 1 : likeCount - 1;
 
-    // Optimistic update
     setHasLiked(newHasLiked);
     setLikeCount(newLikeCount);
     setIsLiking(true);
@@ -119,7 +116,6 @@ export function PostLikeStatus({
         await api.delete(`/likes/${postId}/like`);
       }
     } catch (error) {
-      // Revert on error
       setHasLiked(!newHasLiked);
       setLikeCount(newHasLiked ? likeCount : likeCount + 1);
       console.error("Like action failed:", error);
@@ -133,15 +129,15 @@ export function PostLikeStatus({
     return (
       <button
         disabled
-        className="flex items-center gap-1 text-gray-400 cursor-wait"
+        className="flex items-center gap-1.5 text-muted-foreground cursor-wait"
       >
-        <span>loading heart</span>
-        <span className="text-sm">{likeCount}</span>
+        <Heart className="h-5 w-5 animate-pulse" />
+        <span className="text-sm font-medium">{likeCount}</span>
       </button>
     );
   }
 
-  // Not authenticated - show login button
+  // Not authenticated
   if (!isAuthenticated) {
     return (
       <button
@@ -150,10 +146,10 @@ export function PostLikeStatus({
             `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`,
           )
         }
-        className="flex items-center gap-1 text-gray-500 hover:text-gray-700 transition-colors"
+        className="flex items-center gap-1.5 text-muted-foreground hover:text-accent-400 transition-colors group"
       >
-        <span>🤍</span>
-        <span className="text-sm">{likeCount}</span>
+        <Heart className="h-5 w-5 group-hover:scale-110 transition-transform" />
+        <span className="text-sm font-medium">{likeCount}</span>
       </button>
     );
   }
@@ -163,12 +159,30 @@ export function PostLikeStatus({
     <button
       onClick={handleLike}
       disabled={isLiking}
-      className={`flex items-center gap-1 transition-colors ${
-        hasLiked ? "text-red-500" : "text-gray-500 hover:text-red-400"
+      className={`flex items-center gap-1.5 transition-all ${
+        hasLiked
+          ? "text-accent-400"
+          : "text-muted-foreground hover:text-accent-400"
       } ${isLiking ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
     >
-      <span>{hasLiked ? "❤️" : "🤍"}</span>
-      <span className="text-sm">{likeCount}</span>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={hasLiked ? "liked" : "unliked"}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          <Heart
+            className={`h-5 w-5 ${
+              hasLiked
+                ? "fill-accent-400 text-accent-400 drop-shadow-[0_0_6px_rgba(236,72,153,0.5)]"
+                : ""
+            }`}
+          />
+        </motion.div>
+      </AnimatePresence>
+      <span className="text-sm font-medium">{likeCount}</span>
     </button>
   );
 }

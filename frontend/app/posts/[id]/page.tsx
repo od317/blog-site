@@ -1,21 +1,18 @@
+// app/posts/[id]/page.tsx
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Post } from "@/types/Post";
 import { PostDetails } from "@/components/post/PostDetails/PostDetails";
 
-// Fetch post data on the server (public data only)
 async function getPost(id: string): Promise<Post | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/posts/${id}`;
 
-    // No cookies needed - only public data
     const response = await fetch(url);
 
     if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
+      if (response.status === 404) return null;
       throw new Error(`Failed to fetch post: ${response.status}`);
     }
 
@@ -27,31 +24,22 @@ async function getPost(id: string): Promise<Post | null> {
   }
 }
 
-// Generate static params for popular posts (ISR)
 export async function generateStaticParams() {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
 
   try {
     const response = await fetch(`${baseUrl}/posts?limit=10&offset=0`);
-
-    if (!response.ok) {
-      return [];
-    }
-
+    if (!response.ok) return [];
     const posts = await response.json();
-    return posts.map((post: Post) => ({
-      id: post.id,
-    }));
+    return posts.map((post: Post) => ({ id: post.id }));
   } catch (error) {
     console.error("Error generating static params:", error);
     return [];
   }
 }
 
-// Revalidate posts every 60 seconds (ISR)
 export const revalidate = 60;
 
-// Generate metadata for SEO
 export async function generateMetadata({
   params,
 }: {
@@ -85,26 +73,25 @@ export async function generateMetadata({
   };
 }
 
-// Loading component for Suspense
 function PostDetailsSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="animate-pulse">
-          <div className="mb-4 h-10 w-32 rounded bg-gray-200" />
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="animate-pulse space-y-4">
+          <div className="h-10 w-32 rounded-lg bg-primary-500/10" />
+          <div className="rounded-xl border border-primary-500/10 bg-card p-6">
             <div className="mb-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gray-200" />
-              <div className="flex-1">
-                <div className="h-4 w-32 rounded bg-gray-200" />
-                <div className="mt-1 h-3 w-24 rounded bg-gray-200" />
+              <div className="h-10 w-10 rounded-full bg-primary-500/10" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-32 rounded bg-primary-500/10" />
+                <div className="h-3 w-24 rounded bg-primary-500/10" />
               </div>
             </div>
-            <div className="h-8 w-3/4 rounded bg-gray-200" />
+            <div className="h-8 w-3/4 rounded bg-primary-500/10" />
             <div className="mt-4 space-y-2">
-              <div className="h-4 w-full rounded bg-gray-200" />
-              <div className="h-4 w-5/6 rounded bg-gray-200" />
-              <div className="h-4 w-4/6 rounded bg-gray-200" />
+              <div className="h-4 w-full rounded bg-primary-500/10" />
+              <div className="h-4 w-5/6 rounded bg-primary-500/10" />
+              <div className="h-4 w-4/6 rounded bg-primary-500/10" />
             </div>
           </div>
         </div>
@@ -113,7 +100,6 @@ function PostDetailsSkeleton() {
   );
 }
 
-// Main page component
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -129,7 +115,7 @@ export default async function PostPage({ params }: PageProps) {
 
   return (
     <Suspense fallback={<PostDetailsSkeleton />}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <div className="mx-auto max-w-4xl px-4 py-8">
           <PostDetails post={post} />
         </div>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { deletePost } from "@/app/actions/post.actions";
 import { memo, useState } from "react";
 import { PostAuthor } from "./PostAuthor";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface PostHeaderProps {
   postId: string;
@@ -57,6 +58,7 @@ export const PostHeader = memo(function PostHeader({
         <div className="flex gap-2">
           <Link href={`/posts/${postId}/edit`}>
             <Button variant="outline" size="sm">
+              <Pencil className="h-3.5 w-3.5 mr-1" />
               Edit
             </Button>
           </Link>
@@ -66,6 +68,7 @@ export const PostHeader = memo(function PostHeader({
             onClick={handleDelete}
             isLoading={isDeleting}
           >
+            <Trash2 className="h-3.5 w-3.5 mr-1" />
             Delete
           </Button>
         </div>

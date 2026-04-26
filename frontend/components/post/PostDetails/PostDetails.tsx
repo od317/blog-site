@@ -13,6 +13,7 @@ import { PostActions } from "./PostActions";
 import { usePostRoom } from "@/lib/hooks/usePostRoom";
 import { usePostFromStore } from "@/lib/hooks/usePostFromStore";
 import { usePostStore } from "@/lib/store/postStore";
+import { ArrowLeft } from "lucide-react";
 import type { Post, Comment } from "@/types/Post";
 
 interface PostDetailsProps {
@@ -22,10 +23,8 @@ interface PostDetailsProps {
 export const PostDetails = memo(function PostDetails({
   post: initialPost,
 }: PostDetailsProps) {
-  // Use ref to track if we've already logged
   const hasLoggedRef = useRef(false);
 
-  // Only log once per mount (StrictMode will still log twice in dev)
   useEffect(() => {
     if (!hasLoggedRef.current) {
       console.log("🎯 PostDetails mounted with post:", initialPost.id);
@@ -33,35 +32,28 @@ export const PostDetails = memo(function PostDetails({
     }
   }, [initialPost.id]);
 
-  // Ensure post is in store (only runs once)
   const ensurePostInStore = usePostStore((state) => state.ensurePost);
 
   useEffect(() => {
     ensurePostInStore(initialPost);
   }, [initialPost, ensurePostInStore]);
 
-  // Get post from store (optimized selector)
   const post = usePostFromStore(initialPost.id, initialPost);
 
-  // Local state for comments
   const [comments, setComments] = useState<Comment[]>(
     initialPost.comments || [],
   );
 
-  // Real-time room management
   usePostRoom(post!.id);
 
-  // Store actions (selective subscription)
   const updateCommentCount = usePostStore((state) => state.updateCommentCount);
 
-  // Only subscribe to this specific post's updates for debugging
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
       const unsubscribe = usePostStore.subscribe((state, prevState) => {
         const prevPost = prevState.posts.find((p) => p.id === initialPost.id);
         const currentPost = state.posts.find((p) => p.id === initialPost.id);
 
-        // Only log if THIS post actually changed
         if (JSON.stringify(prevPost) !== JSON.stringify(currentPost)) {
           console.log("🔄 Post updated in store:", {
             id: currentPost?.id,
@@ -74,7 +66,6 @@ export const PostDetails = memo(function PostDetails({
     }
   }, [initialPost.id]);
 
-  // Memoized handlers
   const handleCommentAdded = useCallback(
     (newComment: Comment) => {
       setComments((prev) => {
@@ -122,45 +113,53 @@ export const PostDetails = memo(function PostDetails({
     [updateCommentCount, post!.id, post!.comment_count],
   );
 
-  // Don't render until post is available
   if (!post) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+      </div>
+    );
   }
 
   return (
     <div className="max-w-4xl mx-auto">
       <Link href="/">
-        <Button variant="outline" className="mb-4">
-          ← Back to Feed
+        <Button variant="outline" className="mb-6">
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Feed
         </Button>
       </Link>
 
-      <article className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <article className="rounded-xl border border-primary-500/10 bg-card shadow-sm overflow-hidden">
         <ActiveReaders postId={post.id} />
 
-        <PostHeader
-          postId={post.id}
-          authorId={post.user_id}
-          username={post.username}
-          avatarUrl={post.avatar_url}
-          createdAt={post.created_at}
-        />
+        <div className="p-6">
+          <PostHeader
+            postId={post.id}
+            authorId={post.user_id}
+            username={post.username}
+            avatarUrl={post.avatar_url}
+            createdAt={post.created_at}
+          />
+        </div>
 
         {post.image_url && (
           <PostFeaturedImage imageUrl={post.image_url} title={post.title} />
         )}
 
-        <PostContent title={post.title} content={post.content} />
+        <div className="p-6">
+          <PostContent title={post.title} content={post.content} />
 
-        <PostActions
-          postId={post.id}
-          likeCount={post.like_count}
-          commentCount={post.comment_count}
-        />
+          <PostActions
+            postId={post.id}
+            likeCount={post.like_count}
+            commentCount={post.comment_count}
+          />
+        </div>
       </article>
 
       <section className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">
+        <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
           Comments ({post.comment_count})
         </h2>
         <CommentSection

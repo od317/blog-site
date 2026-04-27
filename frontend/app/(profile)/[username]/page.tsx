@@ -109,12 +109,6 @@ export async function generateMetadata({
   };
 }
 
-// ============================================
-// GENERATE STATIC PARAMS (Empty for dynamic)
-// ============================================
-export async function generateStaticParams() {
-  return [];
-}
 
 // ============================================
 // SKELETON COMPONENTS

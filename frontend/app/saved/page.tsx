@@ -115,7 +115,7 @@ export default async function SavedPostsPage({
     parseInt(params?.limit || String(DEFAULT_LIMIT), 10),
   );
   const offset = (page - 1) * limit;
-
+  
   const data = await getSavedPosts(limit, offset);
 
   // Unauthenticated state

@@ -8,6 +8,11 @@ import { ProfilePageProps, UserProfile } from "@/types/Profile";
 import { PostsResponse } from "@/types/Post";
 
 // ============================================
+// FORCE DYNAMIC RENDERING
+// ============================================
+export const dynamic = 'force-dynamic';
+
+// ============================================
 // CONSTANTS
 // ============================================
 const POSTS_PER_PAGE = 10;
@@ -17,7 +22,6 @@ const POSTS_PER_PAGE = 10;
 // ============================================
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
-
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}`;
 
@@ -25,10 +29,7 @@ async function getProfile(username: string): Promise<UserProfile | null> {
       headers: {
         "Content-Type": "application/json",
       },
-      next: {
-        tags: [`profile-${username}`],
-        revalidate: 60,
-      },
+      cache: "no-store", // Don't cache dynamic profile data
     });
 
     if (!response.ok) {
@@ -49,7 +50,6 @@ async function getProfilePosts(
   limit: number = POSTS_PER_PAGE,
 ): Promise<PostsResponse> {
   try {
-
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}/posts?limit=${limit}&offset=${offset}`;
 
@@ -57,10 +57,7 @@ async function getProfilePosts(
       headers: {
         "Content-Type": "application/json",
       },
-      next: {
-        tags: [`profile-posts-${username}`],
-        revalidate: 60,
-      },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -108,7 +105,6 @@ export async function generateMetadata({
     },
   };
 }
-
 
 // ============================================
 // SKELETON COMPONENTS
@@ -168,11 +164,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
       {/* Top gradient */}
       <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-primary-500/5 to-transparent pointer-events-none" />
       
-      <div className="mx-auto max-w-4xl px-4 py-8 relative">
+      <div className="mx-auto max-w-4xl px-4 py-8 relative z-10">
         <Suspense fallback={<ProfileHeaderSkeleton />}>
           <ProfileHeader initialProfile={profile} />
         </Suspense>

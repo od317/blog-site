@@ -4,27 +4,20 @@
 import { memo } from "react";
 import { PostLikeStatus } from "./PostLikeStatus";
 import { SaveButton } from "./SaveButton";
-import { MessageCircle } from "lucide-react";
 
 interface PostActionsProps {
   postId: string;
   likeCount: number;
-  commentCount: number;
 }
 
 export const PostActions = memo(function PostActions({
   postId,
   likeCount,
-  commentCount,
 }: PostActionsProps) {
   return (
     <div className="mt-6 flex items-center gap-6 border-t border-primary-500/10 pt-4">
       <PostLikeStatus postId={postId} initialLikeCount={likeCount} />
 
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <MessageCircle className="h-5 w-5" />
-        <span className="text-sm font-medium">{commentCount}</span>
-      </div>
 
       <SaveButton postId={postId} />
     </div>

@@ -33,11 +33,8 @@ export function RegisterForm() {
     const result = await registerUser(data);
 
     if (result.success) {
-      setSuccessMessage("Registration successful! You are now logged in.");
-      setTimeout(() => {
         router.push("/");
         router.refresh();
-      }, 2000);
     } else if (result.error) {
       setServerError(result.error);
     }

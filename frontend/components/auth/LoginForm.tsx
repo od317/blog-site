@@ -61,11 +61,8 @@ export function LoginForm() {
         });
 
         setSuccessMessage("Login successful! Redirecting...");
-
-        setTimeout(() => {
           router.push("/");
           router.refresh();
-        }, 1000);
       } else {
         setServerError(result.error || "Invalid email or password");
       }

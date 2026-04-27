@@ -153,7 +153,6 @@ export const PostDetails = memo(function PostDetails({
           <PostActions
             postId={post.id}
             likeCount={post.like_count}
-            commentCount={post.comment_count}
           />
         </div>
       </article>

@@ -47,8 +47,6 @@ export async function addComment({
       };
     }
 
-    revalidatePath(`/posts/${postId}`);
-    console.log("📝 Revalidated path:", `/posts/${postId}`);
 
     return result.data;
   } catch (error) {

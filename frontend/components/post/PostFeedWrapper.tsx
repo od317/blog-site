@@ -1,4 +1,3 @@
-// components/post/PostFeedWrapper.tsx
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -11,27 +10,31 @@ interface PostFeedWrapperProps {
 }
 
 export function PostFeedWrapper({ initialSort }: PostFeedWrapperProps) {
-  const { fetchPosts, resetPagination, currentSort } = usePostStore();
+  const { fetchPosts, resetPagination, posts, isLoading } = usePostStore();
   const hasInitialized = useRef(false);
-
+  const currentSortRef = useRef(initialSort);
+  
   // Enable real-time updates
   useRealtime();
 
-  // Handle sort changes
+  // When sort changes, reset and fetch new data
   useEffect(() => {
-    if (currentSort !== initialSort) {
+    if (currentSortRef.current !== initialSort) {
+      console.log(`🔄 Sort changed from ${currentSortRef.current} to ${initialSort}`);
+      currentSortRef.current = initialSort;
       resetPagination();
-      fetchPosts(initialSort);
+      fetchPosts(initialSort, false);
     }
-  }, [initialSort, currentSort, fetchPosts, resetPagination]);
+  }, [initialSort, fetchPosts, resetPagination]);
 
   // Initial fetch
   useEffect(() => {
-    if (!hasInitialized.current) {
+    if (!hasInitialized.current && posts.length === 0) {
       hasInitialized.current = true;
-      fetchPosts(initialSort);
+      console.log(`📡 Initial fetch with sort: ${initialSort}`);
+      fetchPosts(initialSort, false);
     }
-  }, [initialSort, fetchPosts]);
+  }, [initialSort, fetchPosts, posts.length]);
 
   return <PostList />;
 }

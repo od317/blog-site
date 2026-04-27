@@ -16,7 +16,8 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const sort = searchParams.sort || "latest";
+  const sp = await searchParams
+  const sort = sp.sort || "latest";
 
   return (
     <div className="container mx-auto px-4 py-8">

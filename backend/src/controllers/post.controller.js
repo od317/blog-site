@@ -9,7 +9,7 @@ const pool = require("../config/database");
 exports.getAllPosts = async (req, res) => {
   try {
     const { limit = 20, offset = 0, sort = "latest" } = req.query;
-
+    console.log(req.query)
     const posts = await Post.findAll(
       parseInt(limit),
       parseInt(offset),

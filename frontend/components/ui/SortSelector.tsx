@@ -11,8 +11,9 @@ interface SortSelectorProps {
 
 const sortOptions = [
   { value: "latest", label: "Latest" },
-  { value: "popular", label: "Most Popular" },
   { value: "oldest", label: "Oldest" },
+  { value: "most_liked", label: "Most Liked" },
+  { value: "most_commented", label: "Most Commented" },
 ];
 
 export function SortSelector({ currentSort }: SortSelectorProps) {

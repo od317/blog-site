@@ -1,8 +1,8 @@
-// components/post/PostList.tsx
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
 import { usePostStore } from "@/lib/store/postStore";
+import { useSearchParams } from "next/navigation";
 import { PostCard } from "./PostCard";
 import { PostSkeleton } from "./PostSkeleton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -12,6 +12,9 @@ import { FileText, CheckCircle2 } from "lucide-react";
 export function PostList() {
   const { posts, isLoading, isFetchingMore, error, hasMore, fetchMorePosts } =
     usePostStore();
+  
+  const searchParams = useSearchParams();
+  const currentSort = searchParams.get("sort") || "latest";
 
   const observerRef = useRef<IntersectionObserver>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -20,11 +23,11 @@ export function PostList() {
     (entries: IntersectionObserverEntry[]) => {
       const target = entries[0];
       if (target.isIntersecting && hasMore && !isFetchingMore && !isLoading) {
-        console.log("📜 Loading more posts...");
-        fetchMorePosts();
+        console.log("📜 Loading more posts with sort:", currentSort);
+        fetchMorePosts(currentSort);
       }
     },
-    [hasMore, isFetchingMore, isLoading, fetchMorePosts],
+    [hasMore, isFetchingMore, isLoading, fetchMorePosts, currentSort],
   );
 
   useEffect(() => {
@@ -54,6 +57,16 @@ export function PostList() {
 
   // Loading state - initial
   if (isLoading && posts.length === 0) {
+    return (
+      <div className="space-y-4">
+        <PostSkeleton />
+        <PostSkeleton />
+        <PostSkeleton />
+      </div>
+    );
+  }
+
+  if(isLoading){
     return (
       <div className="space-y-4">
         <PostSkeleton />

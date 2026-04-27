@@ -10,12 +10,12 @@ interface PostStore {
   isLoading: boolean;
   isFetchingMore: boolean;
   error: string | null;
-  currentSort: string;
   hasMore: boolean;
   currentOffset: number;
+  currentSort: string; // Add current sort tracking
 
-  fetchPosts: (sort?: string, append?: boolean) => Promise<void>;
-  fetchMorePosts: () => Promise<void>;
+  fetchPosts: (sort: string, append?: boolean) => Promise<void>;
+  fetchMorePosts: (sort: string) => Promise<void>;
   createPost: (data: { title: string; content: string }) => Promise<Post>;
   ensurePost: (post: Post) => void;
   retryPost: (
@@ -35,33 +35,39 @@ interface PostStore {
   resetPagination: () => void;
 }
 
-const LIMIT = 10; // Posts per page
+const LIMIT = 10;
 
 export const usePostStore = create<PostStore>((set, get) => ({
   posts: [],
   isLoading: true,
   isFetchingMore: false,
   error: null,
-  currentSort: "latest",
   hasMore: true,
   currentOffset: 0,
+  currentSort: "latest",
 
   resetPagination: () => {
     set({
       currentOffset: 0,
       hasMore: true,
       posts: [],
+      isLoading: true, // Set loading to true when resetting pagination
     });
   },
 
-  fetchPosts: async (sort = "latest", append = false) => {
+  fetchPosts: async (sort: string, append = false) => {
     const state = get();
 
-    // If appending, use fetchingMore flag
-    if (append) {
-      set({ isFetchingMore: true, error: null });
+    // If sort changed and it's not an append, set loading to true
+    if (!append) {
+      set({ 
+        isLoading: true, 
+        error: null, 
+        posts: [],
+        currentSort: sort 
+      });
     } else {
-      set({ isLoading: true, error: null, currentSort: sort, posts: [] });
+      set({ isFetchingMore: true, error: null });
     }
 
     try {
@@ -78,7 +84,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
         posts: append ? [...state.posts, ...newPosts] : newPosts,
         isLoading: false,
         isFetchingMore: false,
-        currentSort: sort,
         currentOffset: append ? offset + newPosts.length : newPosts.length,
         hasMore,
       }));
@@ -92,19 +97,17 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }
   },
 
-  fetchMorePosts: async () => {
-    const { currentSort, hasMore, isFetchingMore, isLoading } = get();
+  fetchMorePosts: async (sort: string) => {
+    const { hasMore, isFetchingMore, isLoading } = get();
 
-    // Don't fetch if already loading or no more posts
     if (isFetchingMore || isLoading || !hasMore) return;
 
-    await get().fetchPosts(currentSort, true);
+    await get().fetchPosts(sort, true);
   },
 
   ensurePost: (post) => {
     const exists = get().posts.some((p) => p.id === post.id);
     if (!exists) {
-      console.log("📥 Ensuring post in store:", post.id);
       set((state) => ({
         posts: [post, ...state.posts],
       }));

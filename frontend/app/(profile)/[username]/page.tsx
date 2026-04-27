@@ -2,7 +2,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { cookies } from "next/headers";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfilePosts } from "@/components/profile/ProfilePosts";
 import { ProfilePageProps, UserProfile } from "@/types/Profile";
@@ -18,8 +17,6 @@ const POSTS_PER_PAGE = 10;
 // ============================================
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
 
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}`;
@@ -27,7 +24,6 @@ async function getProfile(username: string): Promise<UserProfile | null> {
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
       },
       next: {
         tags: [`profile-${username}`],
@@ -53,8 +49,6 @@ async function getProfilePosts(
   limit: number = POSTS_PER_PAGE,
 ): Promise<PostsResponse> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
 
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}/posts?limit=${limit}&offset=${offset}`;
@@ -62,7 +56,6 @@ async function getProfilePosts(
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
       },
       next: {
         tags: [`profile-posts-${username}`],

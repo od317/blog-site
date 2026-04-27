@@ -50,6 +50,7 @@ export function useProfileData({
         console.error("Failed to fetch dynamic profile data:", error);
       } finally {
         setIsInitialized(true);
+        setIsLoading(false)
       }
     };
 

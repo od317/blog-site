@@ -54,8 +54,8 @@ export const PostCard = memo(
         <div className="p-6">
           {/* Author info */}
           {post.username && (
-            <div className="flex items-center gap-3 mb-3">
-              <Link href={`/${post.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-3 w-fit">
+              <Link href={`/${post.username}`} className="group/author flex items-center gap-3 flex-1 min-w-0">
                 <OptimizedAvatar
                   src={post.avatar_url}
                   alt={post.username}
@@ -63,7 +63,7 @@ export const PostCard = memo(
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-foreground truncate">
+                    <span className="font-semibold text-foreground group-hover/author:text-primary-400 transition-colors truncate">
                       {post.username}
                     </span>
                     <span className="text-xs text-muted-foreground flex-shrink-0">

@@ -1,6 +1,6 @@
-// app/(profile)/[username]/page.tsx
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfilePosts } from "@/components/profile/ProfilePosts";
@@ -18,18 +18,28 @@ export const dynamic = 'force-dynamic';
 const POSTS_PER_PAGE = 10;
 
 // ============================================
-// SERVER-SIDE DATA FETCHING
+// HELPER: Get cookie string for headers
+// ============================================
+async function getCookieString(): Promise<string> {
+  const cookieStore = await cookies();
+  return cookieStore.toString();
+}
+
+// ============================================
+// SERVER-SIDE DATA FETCHING WITH COOKIES
 // ============================================
 async function getProfile(username: string): Promise<UserProfile | null> {
   try {
+    const cookieString = await getCookieString();
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}`;
 
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
+        ...(cookieString && { Cookie: cookieString }),
       },
-      cache: "no-store", // Don't cache dynamic profile data
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -50,12 +60,14 @@ async function getProfilePosts(
   limit: number = POSTS_PER_PAGE,
 ): Promise<PostsResponse> {
   try {
+    const cookieString = await getCookieString();
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/profile/${username}/posts?limit=${limit}&offset=${offset}`;
 
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
+        ...(cookieString && { Cookie: cookieString }),
       },
       cache: "no-store",
     });

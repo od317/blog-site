@@ -219,13 +219,51 @@ class User {
   }
 
   // Get user posts with pagination
-  static async getUserPosts(
+static async getUserPosts(
+  userId,
+  limit = 10,
+  offset = 0,
+  currentUserId = null,
+) {
+  console.log("📊 getUserPosts called with:", {
     userId,
-    limit = 10,
-    offset = 0,
-    currentUserId = null,
-  ) {
+    currentUserId,
+    limit,
+    offset
+  });
+  
+  // If no current user, just return false for user_has_liked
+  if (!currentUserId) {
     const query = `
+      SELECT 
+        p.id,
+        p.title,
+        p.content,
+        p.image_url,
+        p.created_at,
+        p.updated_at,
+        u.username,
+        u.full_name,
+        u.avatar_url,
+        COUNT(DISTINCT l.id) as like_count,
+        COUNT(DISTINCT c.id) as comment_count,
+        false as user_has_liked
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN likes l ON p.id = l.post_id
+      LEFT JOIN comments c ON p.id = c.post_id
+      WHERE p.user_id = $1
+      GROUP BY p.id, u.id, u.username, u.full_name, u.avatar_url
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+    const values = [userId, limit, offset];
+    const result = await pool.query(query, values);
+    return result.rows;
+  }
+
+  // With current user - check if they liked each post
+  const query = `
     SELECT 
       p.id,
       p.title,
@@ -240,7 +278,7 @@ class User {
       COUNT(DISTINCT c.id) as comment_count,
       EXISTS(
         SELECT 1 FROM likes l2 
-        WHERE l2.post_id = p.id AND l2.user_id = $3
+        WHERE l2.post_id = p.id AND l2.user_id = $3::uuid
       ) as user_has_liked
     FROM posts p
     JOIN users u ON p.user_id = u.id
@@ -251,10 +289,16 @@ class User {
     ORDER BY p.created_at DESC
     LIMIT $2 OFFSET $4
   `;
-    const values = [userId, limit, currentUserId, offset];
-    const result = await pool.query(query, values);
-    return result.rows;
+  const values = [userId, limit, currentUserId, offset];
+  const result = await pool.query(query, values);
+  
+  // Debug output
+  if (result.rows.length > 0) {
+    console.log("📊 First post user_has_liked:", result.rows[0].user_has_liked);
   }
+  
+  return result.rows;
+}
 
   // Get user posts count
   static async getUserPostsCount(userId) {

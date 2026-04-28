@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { postId, content, parentId } = body;
 
-    console.log("📡 API Proxy - Adding comment/replysss:", { postId, parentId });
+    console.log("📡 API Proxy - Adding comment/reply:", { postId, parentId });
 
     const backendUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${backendUrl}/posts/${postId}/comments`;

@@ -17,6 +17,7 @@ interface ProfilePostsProps {
 
 export function ProfilePosts({ username, initialData }: ProfilePostsProps) {
   const [posts, setPosts] = useState<Post[]>(initialData.posts);
+  console.log('posts for profile are',posts)
   const [pagination, setPagination] = useState<PaginationData>(
     initialData.pagination,
   );

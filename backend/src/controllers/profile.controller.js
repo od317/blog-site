@@ -77,7 +77,10 @@ exports.getProfile = async (req, res) => {
 exports.getUserPosts = async (req, res) => {
   try {
     const { username } = req.params;
-    const { limit = 10, offset = 0 } = req.query;
+    const { limit = 10, offset = 0, sort = "latest" } = req.query;
+
+    console.log("📊 getUserPosts called with:", { username, sort, limit, offset });
+    console.log("📊 Current user ID:", req.userId);
 
     // Find user by username
     const user = await User.findByUsername(username);

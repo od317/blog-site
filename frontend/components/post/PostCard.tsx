@@ -55,7 +55,7 @@ export const PostCard = memo(
           {/* Author info */}
           {post.username && (
             <div className="flex items-center gap-3 mb-3">
-              <Link href={`/posts/${post.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+              <Link href={`/${post.username}`} className="flex items-center gap-3 flex-1 min-w-0">
                 <OptimizedAvatar
                   src={post.avatar_url}
                   alt={post.username}

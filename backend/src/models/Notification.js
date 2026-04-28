@@ -232,6 +232,34 @@ class Notification {
     return result.rows;
   }
 
+  // Delete notification by post_id and actor_id for comments
+static async deleteByPostAndComment(postId, actorId, type, commentId = null) {
+  let query;
+  let values;
+  
+  if (commentId) {
+    // Delete specific reply notification
+    query = `
+      DELETE FROM notifications 
+      WHERE post_id = $1 AND actor_id = $2 AND type = $3 AND comment_id = $4
+      RETURNING id
+    `;
+    values = [postId, actorId, type, commentId];
+  } else {
+    // Delete all comment notifications for this actor on this post
+    query = `
+      DELETE FROM notifications 
+      WHERE post_id = $1 AND actor_id = $2 AND type = $3
+      RETURNING id
+    `;
+    values = [postId, actorId, type];
+  }
+  
+  const result = await pool.query(query, values);
+  console.log(`🗑️ Deleted ${result.rowCount} comment/notification(s)`);
+  return result.rows;
+}
+
 }
 
 module.exports = Notification;

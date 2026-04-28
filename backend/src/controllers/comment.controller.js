@@ -147,6 +147,7 @@ exports.addComment = async (req, res) => {
 };
 
 // Delete comment - REQUIRES AUTH (with cascade handling)
+// Delete comment - REQUIRES AUTH (with cascade handling)
 exports.deleteComment = async (req, res) => {
   if (!req.userId) {
     return res.status(401).json({
@@ -165,6 +166,7 @@ exports.deleteComment = async (req, res) => {
     }
 
     const postId = comment.post_id;
+    const post = await Post.findById(postId);
     const parentId = comment.parent_id;
 
     const deleted = await Comment.delete(id, userId);
@@ -184,6 +186,39 @@ exports.deleteComment = async (req, res) => {
       commentCount,
       parentId,
     });
+
+    // ✅ Delete notifications related to this comment
+    // 1. Delete the notification for the post owner (if this was a comment on their post)
+    await Notification.deleteByPostAndComment(postId, userId, 'comment');
+    
+    // 2. If this was a reply, delete the notification for the parent comment author
+    if (parentId) {
+      const parentComment = await Comment.findById(parentId);
+      if (parentComment && parentComment.user_id !== userId) {
+        await Notification.deleteByPostAndComment(postId, userId, 'reply', parentId);
+      }
+    }
+
+    // 3. Notify users to remove notifications from UI
+    io.to(`user:${post.user_id}`).emit("notification-removed", {
+      type: parentId ? "reply_on_post" : "comment",
+      postId: postId,
+      commentId: id,
+      actorId: userId,
+    });
+
+    if (parentId) {
+      const parentComment = await Comment.findById(parentId);
+      if (parentComment && parentComment.user_id !== userId) {
+        io.to(`user:${parentComment.user_id}`).emit("notification-removed", {
+          type: "reply",
+          postId: postId,
+          commentId: id,
+          parentCommentId: parentId,
+          actorId: userId,
+        });
+      }
+    }
 
     res.json({ success: true, commentCount });
   } catch (error) {

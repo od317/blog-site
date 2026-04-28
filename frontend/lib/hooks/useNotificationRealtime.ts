@@ -44,10 +44,9 @@ export function useNotificationRealtime() {
       console.log("🔔 New notification received:", data);
       
       const now = new Date().toISOString();
-      const uniqueId = data.postId 
-        ? `${data.postId}-${data.type}`
-        : `follow-${data.followerUsername}`;
-      const notificationId = `${uniqueId}-${now}`;
+      const notificationId = data.postId 
+        ? `${data.postId}-${data.type}-${Date.now()}`
+        : `follow-${data.followerUsername}-${Date.now()}`;
       
       let groupedNotification: GroupedNotification;
       
@@ -100,17 +99,26 @@ export function useNotificationRealtime() {
     const handleNotificationRemoved = async (data: { 
       type: string; 
       postId: string; 
+      commentId?: string;
+      parentCommentId?: string;
       actorId: string;
     }) => {
       console.log("🗑️ Notification removed:", data);
-      removeNotification(data.type, data.postId, data.actorId);
+      
+      // Remove the notification based on type
+      if (data.type === "comment" || data.type === "reply_on_post" || data.type === "reply") {
+        // For comment-related notifications, remove by postId and actorId
+        removeNotification(data.type, data.postId, data.actorId);
+      } else {
+        // For other types (like, follow)
+        removeNotification(data.type, data.postId, data.actorId);
+      }
+      
       await refreshUnreadCount();
     };
 
     socket.on("new-notification", handleNewNotification);
     socket.on("notification-removed", handleNotificationRemoved);
-    
-    refreshUnreadCount();
 
     return () => {
       socket.off("new-notification", handleNewNotification);

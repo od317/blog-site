@@ -160,45 +160,57 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     });
   },
 
-  removeNotification: (type: string, postId: string, actorId: string) => {
-    set((state) => {
-      const notificationKey = `${postId}-${type}`;
-      const existingIndex = state.notifications.findIndex(
-        (n) => n.notification_id.includes(notificationKey)
-      );
-      
-      if (existingIndex === -1) return state;
-      
-      const existing = state.notifications[existingIndex];
-      
-      // If only one actor, remove the entire notification
-      if (existing.actor_count <= 1) {
-        const updatedNotifications = [...state.notifications];
-        updatedNotifications.splice(existingIndex, 1);
-        
-        return {
-          notifications: updatedNotifications,
-          unreadCount: state.unreadCount - (existing.read ? 0 : 1),
-        };
-      }
-      
-      // Multiple actors - just decrease count and remove the actor
-      const updatedNotification = {
-        ...existing,
-        actor_count: existing.actor_count - 1,
-        actor_usernames: existing.actor_usernames.filter(
-          (_, i) => i !== existing.actor_usernames.findIndex(
-            (name, idx) => name === `actor-${actorId}` && idx === i
-          )
-        ),
-      };
-      
+removeNotification: (type: string, postId: string, actorId: string) => {
+  set((state) => {
+    // Find the notification group that matches this post and type
+    const notificationKey = `${postId}-${type}`;
+    const existingIndex = state.notifications.findIndex(
+      (n) => n.notification_id.includes(notificationKey)
+    );
+    
+    if (existingIndex === -1) return state;
+    
+    const existing = state.notifications[existingIndex];
+    
+    // If only one actor, remove the entire notification
+    if (existing.actor_count <= 1) {
       const updatedNotifications = [...state.notifications];
-      updatedNotifications[existingIndex] = updatedNotification;
+      updatedNotifications.splice(existingIndex, 1);
       
       return {
         notifications: updatedNotifications,
+        unreadCount: state.unreadCount - (existing.read ? 0 : 1),
       };
-    });
-  },
+    }
+    
+    // Multiple actors - just decrease count and remove the actor
+    // Find the index of the actor to remove
+    const actorIndex = existing.actor_usernames.findIndex(
+      (name, idx) => name === `actor-${actorId}` || idx === 0 // Fallback to first if not found
+    );
+    
+    const updatedNotification = {
+      ...existing,
+      actor_count: existing.actor_count - 1,
+      actor_usernames: existing.actor_usernames.filter((_, i) => i !== actorIndex),
+      actor_full_names: existing.actor_full_names.filter((_, i) => i !== actorIndex),
+      actor_avatars: existing.actor_avatars.filter((_, i) => i !== actorIndex),
+    };
+    
+    // Update latest actor if we removed the latest one
+    if (actorIndex === 0 && updatedNotification.actor_usernames.length > 0) {
+      updatedNotification.latest_actor_username = updatedNotification.actor_usernames[0];
+      updatedNotification.latest_actor_full_name = updatedNotification.actor_full_names[0];
+      updatedNotification.latest_actor_avatar = updatedNotification.actor_avatars[0];
+    }
+    
+    const updatedNotifications = [...state.notifications];
+    updatedNotifications[existingIndex] = updatedNotification;
+    
+    return {
+      notifications: updatedNotifications,
+      // Unread count stays the same (notification still exists with other actors)
+    };
+  });
+},
 }));

@@ -260,6 +260,17 @@ static async deleteByPostAndComment(postId, actorId, type, commentId = null) {
   return result.rows;
 }
 
+static async deleteFollowNotification(userId, actorId) {
+  const query = `
+    DELETE FROM notifications 
+    WHERE user_id = $1 AND actor_id = $2 AND type = 'follow'
+    RETURNING id
+  `;
+  const result = await pool.query(query, [userId, actorId]);
+  console.log(`🗑️ Deleted ${result.rowCount} follow notification(s)`);
+  return result.rows;
+}
+
 }
 
 module.exports = Notification;

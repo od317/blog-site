@@ -249,6 +249,12 @@ exports.unfollowUser = async (req, res) => {
     const { userId } = req.params;
     const followerId = req.userId;
 
+    // Get user info for notification (the person being unfollowed)
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     // Remove follow
     const result = await pool.query(
       "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
@@ -280,8 +286,17 @@ exports.unfollowUser = async (req, res) => {
       [followerId],
     );
 
-    // Emit real-time update
+    // ✅ Delete the follow notification from database
+    await Notification.deleteFollowNotification(userId, followerId);
+
+    // Emit real-time update for profile page
     const io = req.app.get("io");
+
+    // Notify the user being unfollowed to remove the notification
+    io.to(`user:${userId}`).emit("notification-removed", {
+      type: "follow",
+      actorId: followerId,
+    });
 
     // Notify the profile page being viewed
     io.to(`profile-${userId}`).emit("followers-updated", {
@@ -296,6 +311,8 @@ exports.unfollowUser = async (req, res) => {
       userId: followerId,
       followingCount: parseInt(newFollowingCount.rows[0].following_count),
     });
+
+    console.log(`📢 User ${followerId} unfollowed user ${userId}`);
 
     res.json({
       message: "User unfollowed successfully",

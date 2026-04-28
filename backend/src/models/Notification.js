@@ -219,6 +219,19 @@ class Notification {
   `;
     await pool.query(query, [userId, actorId]);
   }
+
+  // Delete notification by post_id and actor_id
+  static async deleteByPostAndActor(postId, actorId) {
+    const query = `
+      DELETE FROM notifications 
+      WHERE post_id = $1 AND actor_id = $2 AND type = 'like'
+      RETURNING id
+    `;
+    const result = await pool.query(query, [postId, actorId]);
+    console.log(`🗑️ Deleted ${result.rowCount} like notifications`);
+    return result.rows;
+  }
+
 }
 
 module.exports = Notification;

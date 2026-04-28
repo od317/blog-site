@@ -1,4 +1,3 @@
-// components/notifications/NotificationBell.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -26,6 +25,7 @@ export function NotificationBell() {
 
   useNotificationRealtime();
 
+  // Fetch unread count on mount using API client
   useEffect(() => {
     const fetchInitialUnreadCount = async () => {
       try {
@@ -41,6 +41,7 @@ export function NotificationBell() {
     fetchInitialUnreadCount();
   }, []);
 
+  // Fetch notifications when dropdown opens
   useEffect(() => {
     if (isOpen) {
       fetchNotifications(true);
@@ -62,14 +63,19 @@ export function NotificationBell() {
 
   const handleNotificationClick = async (notification: GroupedNotification) => {
     if (!notification.read) {
-      const actorId =
-        notification.type === "follow" ? notification.actor_id : undefined;
-
+      let actorId: string | undefined;
+      if (notification.type === "follow" && notification.notification_id) {
+        const parts = notification.notification_id.split("-");
+        if (parts.length >= 2) {
+          actorId = parts[1];
+        }
+      }
+      
       await markAsRead(
         notification.notification_id,
         notification.type,
         notification.post_id,
-        actorId,
+        actorId
       );
     }
     setIsOpen(false);
@@ -79,19 +85,21 @@ export function NotificationBell() {
     const { actor_count, latest_actor_username, actor_usernames } = notification;
     const otherCount = actor_count - 1;
 
-    if (actor_count === 1) return latest_actor_username;
+    if (actor_count === 1) {
+      return latest_actor_username;
+    }
+
     if (actor_count === 2) {
-      const otherName = actor_usernames.find(
-        (name) => name !== latest_actor_username,
-      );
+      const otherName = actor_usernames.find(name => name !== latest_actor_username);
       return `${latest_actor_username} and ${otherName || "1 other"}`;
     }
+
     return `${latest_actor_username} and ${otherCount} others`;
   };
 
   const getNotificationHref = (notification: GroupedNotification): string => {
     if (notification.type === "follow") {
-      return `/${notification.latest_actor_username}`;
+      return `/profile/${notification.latest_actor_username}`;
     }
     if (notification.post_id) {
       return `/posts/${notification.post_id}`;
@@ -105,19 +113,42 @@ export function NotificationBell() {
     const postText = post_title ? `"${post_title}"` : "a post";
 
     if (type === "follow") {
+      if (actor_count === 1) {
+        return `${displayNames} started following you`;
+      }
       return `${displayNames} started following you`;
     }
-    if (type === "save") {
-      return `${displayNames} saved your post ${postText}`;
-    }
+
     if (type === "comment") {
+      if (actor_count === 1) {
+        return `${displayNames} commented on your post ${postText}`;
+      }
       return `${displayNames} commented on your post ${postText}`;
     }
+
     if (type === "reply") {
+      if (actor_count === 1) {
+        return `${displayNames} replied to your comment on ${postText}`;
+      }
       return `${displayNames} replied to your comment on ${postText}`;
     }
+
     if (type === "reply_on_post") {
+      if (actor_count === 1) {
+        return `${displayNames} replied on your post ${postText}`;
+      }
       return `${displayNames} replied on your post ${postText}`;
+    }
+
+    if (type === "save") {
+      if (actor_count === 1) {
+        return `${displayNames} saved your post ${postText}`;
+      }
+      return `${displayNames} saved your post ${postText}`;
+    }
+
+    if (actor_count === 1) {
+      return `${displayNames} liked your post ${postText}`;
     }
     return `${displayNames} liked your post ${postText}`;
   };
@@ -189,6 +220,7 @@ export function NotificationBell() {
                       }`}
                     >
                       <div className="flex gap-3">
+                        {/* Avatar */}
                         {notification.latest_actor_avatar ? (
                           <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
                             <Image
@@ -200,7 +232,8 @@ export function NotificationBell() {
                           </div>
                         ) : (
                           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-accent-500 text-sm font-medium text-white ring-2 ring-primary-500/30">
-                            {notification.latest_actor_username?.[0]?.toUpperCase() || "U"}
+                            {notification.latest_actor_username?.[0]?.toUpperCase() ||
+                              "U"}
                           </div>
                         )}
 

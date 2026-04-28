@@ -86,6 +86,7 @@ exports.likePost = async (req, res) => {
 };
 
 // Unlike a post - REQUIRES AUTH
+// Unlike a post
 exports.unlikePost = async (req, res) => {
   if (!req.userId) {
     return res.status(401).json({
@@ -97,42 +98,57 @@ exports.unlikePost = async (req, res) => {
   try {
     const { postId } = req.params;
     const userId = req.userId;
-
+    
+    // Get post info first (to know the owner)
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    
     const removed = await Like.delete(postId, userId);
     if (!removed) {
-      return res.status(400).json({ error: "Post not liked yet" });
+      return res.status(400).json({ error: 'Post not liked yet' });
     }
-
+    
     const likeCount = await Like.getCount(postId);
-
-    const io = req.app.get("io");
-
-    io.to(`post-${postId}`).emit("like-updated", {
+    
+    // ✅ Remove the notification for the post owner
+    const io = req.app.get('io');
+    
+    // Delete the like notification from database
+    await Notification.deleteByPostAndActor(postId, userId);
+    
+    // Notify the post owner to remove the notification from UI
+    io.to(`user:${post.user_id}`).emit('notification-removed', {
+      type: 'like',
+      postId: postId,
+      actorId: userId,
+    });
+    
+    io.to(`post-${postId}`).emit('like-updated', {
       postId,
       likeCount,
       userId,
-      action: "unliked",
+      action: 'unliked'
     });
-
-    io.to("global-feed").emit("feed-like-updated", {
+    
+    io.to('global-feed').emit('feed-like-updated', {
       postId,
       likeCount,
       userId,
-      action: "unliked",
+      action: 'unliked'
     });
-
-    console.log(
-      `📢 Like removed: post ${postId} by user ${userId}, total: ${likeCount}`,
-    );
-
+    
+    console.log(`📢 Like removed: post ${postId} by user ${userId}, total: ${likeCount}`);
+    
     res.json({
       success: true,
       liked: false,
       likeCount,
     });
   } catch (error) {
-    console.error("Unlike post error:", error);
-    res.status(500).json({ error: "Failed to unlike post" });
+    console.error('Unlike post error:', error);
+    res.status(500).json({ error: 'Failed to unlike post' });
   }
 };
 

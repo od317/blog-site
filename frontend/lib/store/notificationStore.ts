@@ -19,8 +19,9 @@ interface NotificationStore {
     actorId?: string,
   ) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  addNotification: (notification: GroupedNotification) => void;
-  incrementUnreadCount: () => void;
+  addOrUpdateNotification: (notification: GroupedNotification) => void;
+  removeNotification: (type: string, postId: string, actorId: string) => void;
+  refreshUnreadCount: () => Promise<void>;
 }
 
 const LIMIT = 20;
@@ -45,7 +46,6 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const response = await api.get<NotificationsResponse>(
         `/notifications?limit=${LIMIT}&offset=${newOffset}`,
       );
-      console.log(response);
 
       set((state) => ({
         notifications: reset
@@ -62,7 +62,15 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }
   },
 
-  // ✅ Updated to handle follow notifications (which don't have post_id)
+  refreshUnreadCount: async () => {
+    try {
+      const response = await api.get<{ count: number }>("/notifications/unread-count");
+      set({ unreadCount: response.count });
+    } catch (error) {
+      console.error("Failed to refresh unread count:", error);
+    }
+  },
+
   markAsRead: async (
     notificationId: string,
     type: string,
@@ -73,10 +81,8 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       let url: string;
 
       if (type === "follow" && actorId) {
-        // For follow notifications, mark by actor_id
         url = `/notifications/follow/${actorId}/read`;
       } else if (postId) {
-        // For post-related notifications, mark by post_id and type
         url = `/notifications/posts/${postId}/read?type=${type}`;
       } else {
         console.error("Cannot mark notification as read: missing identifier");
@@ -85,12 +91,18 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
       await api.put(url);
 
-      set((state) => ({
-        notifications: state.notifications.map((n) =>
+      set((state) => {
+        const updatedNotifications = state.notifications.map((n) =>
           n.notification_id === notificationId ? { ...n, read: true } : n,
-        ),
-        unreadCount: Math.max(0, state.unreadCount - 1),
-      }));
+        );
+        
+        const newUnreadCount = updatedNotifications.filter((n) => !n.read).length;
+        
+        return {
+          notifications: updatedNotifications,
+          unreadCount: newUnreadCount,
+        };
+      });
     } catch (error) {
       console.error("Failed to mark as read:", error);
     }
@@ -108,14 +120,85 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }
   },
 
-  addNotification: (notification: GroupedNotification) => {
-    set((state) => ({
-      notifications: [notification, ...state.notifications],
-      unreadCount: state.unreadCount + 1,
-    }));
+  addOrUpdateNotification: (notification: GroupedNotification) => {
+    set((state) => {
+      // Find if this notification group already exists
+      const existingIndex = state.notifications.findIndex(
+        (n) => n.notification_id === notification.notification_id
+      );
+
+      if (existingIndex !== -1) {
+        // Update existing notification - DO NOT change unread count
+        const existing = state.notifications[existingIndex];
+        
+        const mergedNotification = {
+          ...notification,
+          read: existing.read, // Preserve read status
+          actor_count: Math.max(existing.actor_count, notification.actor_count),
+          actor_usernames: Array.from(new Set([...existing.actor_usernames, ...notification.actor_usernames])).slice(0, 5),
+          actor_full_names: Array.from(new Set([...existing.actor_full_names, ...notification.actor_full_names])).slice(0, 5),
+          actor_avatars: Array.from(new Set([...existing.actor_avatars, ...notification.actor_avatars])).slice(0, 5),
+        };
+        
+        const updatedNotifications = [...state.notifications];
+        updatedNotifications[existingIndex] = mergedNotification;
+        
+        updatedNotifications.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        
+        return {
+          notifications: updatedNotifications,
+        };
+      }
+      
+      // New notification - add to top and increment unread count
+      return {
+        notifications: [notification, ...state.notifications],
+        unreadCount: state.unreadCount + (notification.read ? 0 : 1),
+      };
+    });
   },
 
-  incrementUnreadCount: () => {
-    set((state) => ({ unreadCount: state.unreadCount + 1 }));
+  removeNotification: (type: string, postId: string, actorId: string) => {
+    set((state) => {
+      const notificationKey = `${postId}-${type}`;
+      const existingIndex = state.notifications.findIndex(
+        (n) => n.notification_id.includes(notificationKey)
+      );
+      
+      if (existingIndex === -1) return state;
+      
+      const existing = state.notifications[existingIndex];
+      
+      // If only one actor, remove the entire notification
+      if (existing.actor_count <= 1) {
+        const updatedNotifications = [...state.notifications];
+        updatedNotifications.splice(existingIndex, 1);
+        
+        return {
+          notifications: updatedNotifications,
+          unreadCount: state.unreadCount - (existing.read ? 0 : 1),
+        };
+      }
+      
+      // Multiple actors - just decrease count and remove the actor
+      const updatedNotification = {
+        ...existing,
+        actor_count: existing.actor_count - 1,
+        actor_usernames: existing.actor_usernames.filter(
+          (_, i) => i !== existing.actor_usernames.findIndex(
+            (name, idx) => name === `actor-${actorId}` && idx === i
+          )
+        ),
+      };
+      
+      const updatedNotifications = [...state.notifications];
+      updatedNotifications[existingIndex] = updatedNotification;
+      
+      return {
+        notifications: updatedNotifications,
+      };
+    });
   },
 }));

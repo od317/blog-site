@@ -155,29 +155,131 @@ router.post("/fix-orphaned-comments", async (req, res) => {
   }
 });
 
-router.delete("/delete-all-posts", async (req, res) => {
+router.post("/reset-database", async (req, res) => {
   try {
-    console.log("💣 DELETING ALL POSTS...");
+    console.log("💣 RESETTING DATABASE - Dropping and recreating all tables...");
 
-    // Disable foreign key checks
-    await pool.query("SET session_replication_role = replica;");
+    // Drop all tables in correct order (respecting foreign keys)
+    await pool.query("DROP TABLE IF EXISTS notifications CASCADE");
+    await pool.query("DROP TABLE IF EXISTS saved_posts CASCADE");
+    await pool.query("DROP TABLE IF EXISTS comments CASCADE");
+    await pool.query("DROP TABLE IF EXISTS likes CASCADE");
+    await pool.query("DROP TABLE IF EXISTS follows CASCADE");
+    await pool.query("DROP TABLE IF EXISTS posts CASCADE");
+    await pool.query("DROP TABLE IF EXISTS users CASCADE");
 
-    // Delete all posts (this will cascade to comments and likes)
-    const result = await pool.query("DELETE FROM posts");
+    console.log("✅ All tables dropped");
 
-    // Re-enable foreign key checks
-    await pool.query("SET session_replication_role = DEFAULT;");
+    // Recreate all tables
+    await pool.query(`
+      CREATE TABLE users (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(100),
+        avatar_url TEXT,
+        bio TEXT,
+        is_verified BOOLEAN DEFAULT FALSE,
+        verification_token VARCHAR(255),
+        verification_token_expires TIMESTAMP,
+        reset_password_token VARCHAR(255),
+        reset_password_expires TIMESTAMP,
+        refresh_token VARCHAR(500),
+        refresh_token_expires TIMESTAMP,
+        followers_count INTEGER DEFAULT 0,
+        following_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    console.log(`✅ Deleted ${result.rowCount} posts`);
+    await pool.query(`
+      CREATE TABLE posts (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        image_url TEXT,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE comments (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        content TEXT NOT NULL,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE likes (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE follows (
+        id SERIAL PRIMARY KEY,
+        follower_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        following_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(follower_id, following_id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE saved_posts (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE notifications (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        actor_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+        read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes
+    await pool.query(`CREATE INDEX idx_users_email ON users(email)`);
+    await pool.query(`CREATE INDEX idx_users_username ON users(username)`);
+    await pool.query(`CREATE INDEX idx_posts_user_id ON posts(user_id)`);
+    await pool.query(`CREATE INDEX idx_comments_post_id ON comments(post_id)`);
+    await pool.query(`CREATE INDEX idx_likes_post_id ON likes(post_id)`);
+    await pool.query(`CREATE INDEX idx_follows_follower ON follows(follower_id)`);
+    await pool.query(`CREATE INDEX idx_follows_following ON follows(following_id)`);
+    await pool.query(`CREATE INDEX idx_notifications_user_id ON notifications(user_id)`);
+    await pool.query(`CREATE INDEX idx_notifications_user_read ON notifications(user_id, read)`);
+
+    console.log("✅ All tables recreated successfully");
 
     res.json({ 
       success: true, 
-      message: `Deleted ${result.rowCount} posts successfully.`,
-      deletedCount: result.rowCount
+      message: "Database reset complete. All tables dropped and recreated."
     });
   } catch (error) {
-    console.error("Delete posts error:", error);
-    await pool.query("SET session_replication_role = DEFAULT;");
+    console.error("Reset database error:", error);
     res.status(500).json({ error: error.message });
   }
 });

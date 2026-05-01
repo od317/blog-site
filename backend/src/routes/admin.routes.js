@@ -155,33 +155,28 @@ router.post("/fix-orphaned-comments", async (req, res) => {
   }
 });
 
-router.post("/nuke", async (req, res) => {
+router.delete("/delete-all-posts", async (req, res) => {
   try {
-    console.log("💣 NUKE: Deleting all data...");
+    console.log("💣 DELETING ALL POSTS...");
 
     // Disable foreign key checks
     await pool.query("SET session_replication_role = replica;");
 
-    // Delete all data from tables (order matters for foreign keys)
-    await pool.query("DELETE FROM notifications");
-    await pool.query("DELETE FROM saved_posts");
-    await pool.query("DELETE FROM comments");
-    await pool.query("DELETE FROM likes");
-    await pool.query("DELETE FROM follows");
-    await pool.query("DELETE FROM posts");
-    await pool.query("DELETE FROM users");
+    // Delete all posts (this will cascade to comments and likes)
+    const result = await pool.query("DELETE FROM posts");
 
     // Re-enable foreign key checks
     await pool.query("SET session_replication_role = DEFAULT;");
 
-    console.log("✅ All data deleted successfully");
+    console.log(`✅ Deleted ${result.rowCount} posts`);
 
     res.json({ 
       success: true, 
-      message: "All data has been deleted. The database is now empty." 
+      message: `Deleted ${result.rowCount} posts successfully.`,
+      deletedCount: result.rowCount
     });
   } catch (error) {
-    console.error("Nuke error:", error);
+    console.error("Delete posts error:", error);
     await pool.query("SET session_replication_role = DEFAULT;");
     res.status(500).json({ error: error.message });
   }

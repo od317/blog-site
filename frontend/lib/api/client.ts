@@ -40,7 +40,7 @@ interface RequestOptions extends RequestInit {
 
 export class ApiClient {
   private baseUrl: string;
-  private defaultTimeout: number = 120;
+  private defaultTimeout: number = 30000;
   private isRefreshing: boolean = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
 

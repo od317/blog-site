@@ -62,14 +62,9 @@ export function NotificationBell() {
   }, []);
 
   const handleNotificationClick = async (notification: GroupedNotification) => {
-    if (!notification.read) {
-      let actorId: string | undefined;
-      if (notification.type === "follow" && notification.notification_id) {
-        const parts = notification.notification_id.split("-");
-        if (parts.length >= 2) {
-          actorId = parts[1];
-        }
-      }
+             if (!notification.read) {
+      // For follow notifications, use the actor_id directly from the notification object
+      const actorId = notification.type === "follow" ? notification.actor_id : undefined;
       
       await markAsRead(
         notification.notification_id,

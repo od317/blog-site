@@ -81,6 +81,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       let url: string;
 
       if (type === "follow" && actorId) {
+        // Use the full actor_id (UUID)
         url = `/notifications/follow/${actorId}/read`;
       } else if (postId) {
         url = `/notifications/posts/${postId}/read?type=${type}`;
@@ -91,18 +92,12 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
       await api.put(url);
 
-      set((state) => {
-        const updatedNotifications = state.notifications.map((n) =>
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
           n.notification_id === notificationId ? { ...n, read: true } : n,
-        );
-        
-        const newUnreadCount = updatedNotifications.filter((n) => !n.read).length;
-        
-        return {
-          notifications: updatedNotifications,
-          unreadCount: newUnreadCount,
-        };
-      });
+        ),
+        unreadCount: Math.max(0, state.unreadCount - 1),
+      }));
     } catch (error) {
       console.error("Failed to mark as read:", error);
     }

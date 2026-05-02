@@ -507,4 +507,135 @@ router.post("/run-all", async (req, res) => {
   }
 });
 
+// Create all tables from scratch (for fresh database)
+router.post("/create-all-tables", async (req, res) => {
+  try {
+    console.log("🔧 Creating all tables from scratch...");
+
+    // Create users table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(100),
+        avatar_url TEXT,
+        bio TEXT,
+        is_verified BOOLEAN DEFAULT FALSE,
+        verification_token VARCHAR(255),
+        verification_token_expires TIMESTAMP,
+        reset_password_token VARCHAR(255),
+        reset_password_expires TIMESTAMP,
+        refresh_token VARCHAR(500),
+        refresh_token_expires TIMESTAMP,
+        followers_count INTEGER DEFAULT 0,
+        following_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ Users table created");
+
+    // Create posts table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS posts (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        image_url TEXT,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ Posts table created");
+
+    // Create comments table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS comments (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        content TEXT NOT NULL,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ Comments table created");
+
+    // Create likes table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS likes (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      )
+    `);
+    console.log("✅ Likes table created");
+
+    // Create follows table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS follows (
+        id SERIAL PRIMARY KEY,
+        follower_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        following_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(follower_id, following_id)
+      )
+    `);
+    console.log("✅ Follows table created");
+
+    // Create saved_posts table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS saved_posts (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      )
+    `);
+    console.log("✅ Saved posts table created");
+
+    // Create notifications table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        actor_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+        read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ Notifications table created");
+
+    // Create indexes
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_likes_post_id ON likes(post_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read)`);
+    console.log("✅ All indexes created");
+
+    res.json({
+      success: true,
+      message: "All tables created successfully"
+    });
+  } catch (error) {
+    console.error("Migration error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

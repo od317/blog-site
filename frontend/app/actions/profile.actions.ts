@@ -70,17 +70,13 @@ export async function uploadAvatar(
 ): Promise<{ success: boolean; avatarUrl?: string; error?: string }> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    if (!token) {
-      return { success: false, error: "Not authenticated" };
-    }
+    const cookieString = cookieStore.toString();
 
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const response = await fetch(`${baseUrl}/profile/avatar`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Cookie: cookieString,
       },
       body: formData,
     });
@@ -88,12 +84,15 @@ export async function uploadAvatar(
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: data.error || "Failed to upload avatar" };
+      // Return specific error message from backend
+      return { 
+        success: false, 
+        error: data.error || data.message || "Failed to upload avatar" 
+      };
     }
 
-    // Revalidate caches
     revalidatePath(`/${username}`);
-    revalidateTag(`profile-${username}`, "max");
+    revalidateTag(`profile-${username}`,'max');
 
     return { success: true, avatarUrl: data.avatarUrl };
   } catch (error) {

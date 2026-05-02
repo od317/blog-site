@@ -44,9 +44,7 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
   }, [handleFollowToggleBase]);
 
   const handleAvatarUpload = useCallback(
-    async (file: File) => {
-      setIsUploading(true);
-
+    async (file: File): Promise<{ success: boolean; error?: string }> => {
       const formData = new FormData();
       formData.append("avatar", file);
 
@@ -55,14 +53,13 @@ export function ProfileHeader({ initialProfile }: ProfileHeaderProps) {
 
         if (result.success && result.avatarUrl) {
           setAvatarUrl(result.avatarUrl);
+          return { success: true };
         } else {
-          alert(result.error || "Failed to upload avatar");
+          return { success: false, error: result.error || "Failed to upload avatar" };
         }
       } catch (error) {
         console.error("Failed to upload avatar:", error);
-        alert("Failed to upload avatar. Please try again.");
-      } finally {
-        setIsUploading(false);
+        return { success: false, error: "Failed to upload avatar. Please try again." };
       }
     },
     [initialProfile.username],

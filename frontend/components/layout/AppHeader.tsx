@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -10,7 +11,7 @@ import { NavbarSkeleton } from "./NavbarSkeleton";
 
 export function AppHeader() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
-
+  
   if (isLoading) return <NavbarSkeleton />;
 
   return (
@@ -47,17 +48,36 @@ export function AppHeader() {
 
                 <NotificationBell />
 
-                <div className="flex items-center gap-3 border-l border-primary-500/20 pl-4 ml-2">
-                  <span className="text-sm text-foreground/80 hidden sm:inline">
-                    {user?.username}
-                  </span>
-                  <button
-                    onClick={() => logout()}
-                    className="rounded-lg border border-primary-500/30 px-3 py-1.5 text-sm font-medium text-primary-400 hover:bg-primary-500/10 hover:border-primary-400/50 transition-all"
-                  >
-                    Logout
-                  </button>
-                </div>
+                {/* User Avatar and Profile Link */}
+                <Link
+                  href={`/${user?.username}`}
+                  className="flex items-center gap-3 border-l border-primary-500/20 pl-4 ml-2 group"
+                >
+                  {/* Avatar */}
+                  <div className="relative h-8 w-8 mr-2 overflow-hidden rounded-full ring-2 ring-primary-500/20 group-hover:ring-primary-400/40 transition-all">
+                    {user?.avatar_url ? (
+                      <Image
+                        src={user.avatar_url}
+                        alt={user.username || "User avatar"}
+                        fill
+                        className="object-cover"
+                        sizes="32px"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-500 to-accent-500 text-sm font-medium text-white">
+                        {user?.username?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+
+                {/* Logout Button */}
+                <button
+                  onClick={() => logout()}
+                  className="rounded-lg border border-primary-500/30 px-3 py-1.5 text-sm font-medium text-primary-400 hover:bg-primary-500/10 hover:border-primary-400/50 transition-all"
+                >
+                  Logout
+                </button>
               </>
             ) : (
               <>

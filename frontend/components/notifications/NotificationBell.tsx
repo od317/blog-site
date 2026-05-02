@@ -99,7 +99,7 @@ export function NotificationBell() {
 
   const getNotificationHref = (notification: GroupedNotification): string => {
     if (notification.type === "follow") {
-      return `/profile/${notification.latest_actor_username}`;
+      return `/${notification.latest_actor_username}`;
     }
     if (notification.post_id) {
       return `/posts/${notification.post_id}`;

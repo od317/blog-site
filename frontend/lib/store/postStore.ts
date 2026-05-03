@@ -39,7 +39,7 @@ const LIMIT = 10;
 
 export const usePostStore = create<PostStore>((set, get) => ({
   posts: [],
-  isLoading: true,
+  isLoading: false,
   isFetchingMore: false,
   error: null,
   hasMore: true,
@@ -60,11 +60,11 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
     // If sort changed and it's not an append, set loading to true
     if (!append) {
-      set({ 
-        isLoading: true, 
-        error: null, 
+      set({
+        isLoading: true,
+        error: null,
         posts: [],
-        currentSort: sort 
+        currentSort: sort,
       });
     } else {
       set({ isFetchingMore: true, error: null });

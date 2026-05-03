@@ -1,8 +1,8 @@
-// components/layout/AppHeader.tsx
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -10,8 +10,14 @@ import { Search, Bookmark } from "lucide-react";
 import { NavbarSkeleton } from "./NavbarSkeleton";
 
 export function AppHeader() {
+  const router = useRouter();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
-  
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/";
+  };
+
   if (isLoading) return <NavbarSkeleton />;
 
   return (
@@ -19,8 +25,8 @@ export function AppHeader() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo/Brand */}
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="text-xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent hover:from-primary-300 hover:to-accent-300 transition-all"
           >
             Blog App
@@ -73,7 +79,7 @@ export function AppHeader() {
 
                 {/* Logout Button */}
                 <button
-                  onClick={() => logout()}
+                  onClick={handleLogout}
                   className="rounded-lg border border-primary-500/30 px-3 py-1.5 text-sm font-medium text-primary-400 hover:bg-primary-500/10 hover:border-primary-400/50 transition-all"
                 >
                   Logout

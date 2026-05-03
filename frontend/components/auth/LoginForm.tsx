@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { setAuthTokens } from "@/app/actions/auth.actions";
 import { X, LogIn } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export function LoginForm() {
   const router = useRouter();
@@ -61,8 +61,8 @@ export function LoginForm() {
         });
 
         setSuccessMessage("Login successful! Redirecting...");
-          router.push("/");
-          router.refresh();
+        router.push("/");
+        window.location.href = "/";
       } else {
         setServerError(result.error || "Invalid email or password");
       }

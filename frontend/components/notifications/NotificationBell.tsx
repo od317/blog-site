@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Bell } from "lucide-react";
 import { useNotificationStore } from "@/lib/store/notificationStore";
-import { useNotificationRealtime } from "@/lib/hooks/useNotificationRealtime";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { api } from "@/lib/api/client";
 import type { GroupedNotification } from "@/types/notification";
@@ -22,8 +21,6 @@ export function NotificationBell() {
     markAsRead,
     markAllAsRead,
   } = useNotificationStore();
-
-  useNotificationRealtime();
 
   // Fetch unread count on mount using API client
   useEffect(() => {
@@ -62,22 +59,24 @@ export function NotificationBell() {
   }, []);
 
   const handleNotificationClick = async (notification: GroupedNotification) => {
-             if (!notification.read) {
+    if (!notification.read) {
       // For follow notifications, use the actor_id directly from the notification object
-      const actorId = notification.type === "follow" ? notification.actor_id : undefined;
-      
+      const actorId =
+        notification.type === "follow" ? notification.actor_id : undefined;
+
       await markAsRead(
         notification.notification_id,
         notification.type,
         notification.post_id,
-        actorId
+        actorId,
       );
     }
     setIsOpen(false);
   };
 
   const getDisplayNames = (notification: GroupedNotification): string => {
-    const { actor_count, latest_actor_username, actor_usernames } = notification;
+    const { actor_count, latest_actor_username, actor_usernames } =
+      notification;
     const otherCount = actor_count - 1;
 
     if (actor_count === 1) {
@@ -85,7 +84,9 @@ export function NotificationBell() {
     }
 
     if (actor_count === 2) {
-      const otherName = actor_usernames.find(name => name !== latest_actor_username);
+      const otherName = actor_usernames.find(
+        (name) => name !== latest_actor_username,
+      );
       return `${latest_actor_username} and ${otherName || "1 other"}`;
     }
 
@@ -102,7 +103,9 @@ export function NotificationBell() {
     return "/";
   };
 
-  const getNotificationMessage = (notification: GroupedNotification): string => {
+  const getNotificationMessage = (
+    notification: GroupedNotification,
+  ): string => {
     const { type, actor_count, post_title } = notification;
     const displayNames = getDisplayNames(notification);
     const postText = post_title ? `"${post_title}"` : "a post";

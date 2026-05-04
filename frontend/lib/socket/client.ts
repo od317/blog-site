@@ -6,18 +6,27 @@ import { Comment, Post } from "@/types/Post";
 let socket: Socket | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
+let authPromise: Promise<boolean> | null = null;
 
 export const getSocket = (): Socket | null => socket;
 
 export const initSocket = async () => {
-  if (socket) return socket;
+  if (socket && socket.connected) {
+    console.log("Socket already connected");
+    return socket;
+  }
 
   const SOCKET_URL = config.socketUrl;
-  console.log("🔌 Socket connecting to:", SOCKET_URL);
+  console.log("🔌 Initializing socket connection to:", SOCKET_URL);
+
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 
   socket = io(SOCKET_URL, {
     autoConnect: false,
-    transports: ["polling", "websocket"],
+    transports: ["websocket", "polling"],
     withCredentials: true,
     reconnection: true,
     reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
@@ -27,14 +36,29 @@ export const initSocket = async () => {
   });
 
   socket.on("connect", async () => {
-    console.log("✅ Socket connected successfully");
+    console.log("✅ Socket connected successfully, ID:", socket?.id);
     reconnectAttempts = 0;
 
-    // Get token from HttpOnly cookie via Server Action
     const accessToken = await getAccessToken();
     if (accessToken) {
       console.log("🔑 Authenticating socket with token...");
+      // Create a promise that resolves when authenticated
+      authPromise = new Promise((resolve) => {
+        socket?.once("authenticated", (data) => {
+          console.log("✅ Socket authenticated successfully:", data);
+          resolve(true);
+        });
+        socket?.once("auth-error", (error) => {
+          console.error("❌ Socket authentication error:", error);
+          resolve(false);
+        });
+      });
       socket?.emit("authenticate", accessToken);
+      await authPromise;
+
+      // After authentication, subscribe to feed
+      console.log("📡 Subscribing to feed after authentication");
+      socket?.emit("subscribe-feed");
     } else {
       console.log("⚠️ No access token found for socket authentication");
     }
@@ -57,6 +81,10 @@ export const connectSocket = async () => {
   if (!socket.connected) {
     console.log("Connecting socket...");
     socket.connect();
+    // Wait for authentication to complete
+    if (authPromise) {
+      await authPromise;
+    }
   }
   return socket;
 };

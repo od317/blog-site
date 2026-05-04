@@ -28,3 +28,24 @@ export interface NotificationsResponse {
     hasMore: boolean;
   };
 }
+
+// frontend/types/notification.ts
+
+export interface NotificationSocketData {
+  type: string;
+  postId?: string;
+  postTitle?: string;
+  commentId?: string;
+  parentCommentId?: string;
+  followerUsername?: string;
+  followerFullName?: string;
+  followerAvatar?: string;
+}
+
+export interface NotificationRemovedData {
+  type: string;
+  postId: string;
+  commentId?: string;
+  parentCommentId?: string;
+  actorId: string;
+}

@@ -1,10 +1,11 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
-import { cookies } from 'next/headers'
+import { cookies } from "next/headers";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ClientProviders } from "@/components/providers/ClientProviders";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { SocketDebug } from "@/components/debug/SocketDebug";
 
 export const metadata: Metadata = {
   title: "Blog App",
@@ -17,11 +18,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   // Read theme from cookie on server
-  const cookieStore = await cookies()
-  const theme = cookieStore.get('theme')?.value || 'system'
-  
+  const cookieStore = await cookies();
+  const theme = cookieStore.get("theme")?.value || "system";
+
   // Resolve the theme (for system, we default to light on server)
-  const resolvedTheme = theme === 'dark' ? 'dark' : 'light'
+  const resolvedTheme = theme === "dark" ? "dark" : "light";
 
   return (
     <html lang="en" className={resolvedTheme} suppressHydrationWarning>
@@ -53,6 +54,7 @@ export default async function RootLayout({
       <body className="bg-background text-foreground antialiased">
         <AuthProvider>
           <ClientProviders>
+            <SocketDebug />
             <div className="min-h-screen">
               <AppHeader />
               <main>{children}</main>

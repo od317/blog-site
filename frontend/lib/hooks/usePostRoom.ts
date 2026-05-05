@@ -1,69 +1,56 @@
-// lib/hooks/usePostRoom.ts
-import { useEffect, useRef } from "react";
-import { getSocket, initSocket, connectSocket } from "@/lib/socket/client";
-import { useAuthStore } from "../store/authStore";
+import { useEffect } from "react";
+import { getSocket } from "../socket";
 
 // lib/hooks/usePostRoom.ts
 export function usePostRoom(postId: string) {
-  const hasJoinedRef = useRef(false);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const user = useAuthStore((state) => state.user);
-
   useEffect(() => {
-    const isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 10;
+    let timeoutId: NodeJS.Timeout;
 
-    const joinRoom = async () => {
-      // Wait for authentication first
-      if (!isAuthenticated || !user) {
-        console.log("Waiting for authentication before joining room...");
+    const attemptJoinRoom = async () => {
+      const socket = getSocket();
+
+      if (!socket?.connected) {
+        console.log(`Socket not connected, retry ${retryCount}/${maxRetries}`);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          timeoutId = setTimeout(attemptJoinRoom, 2000); // Retry every 2 seconds
+        }
         return;
       }
 
-      try {
-        let socket = getSocket();
+      // Socket is connected, try joining
+      socket.emit("join-post", postId);
 
-        if (!socket || !socket.connected) {
-          console.log("Socket not ready, connecting...");
-          socket = await connectSocket();
+      // Wait for confirmation
+      const joined = await new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(false), 5000);
+        socket.once("post-joined", () => {
+          clearTimeout(timeout);
+          resolve(true);
+        });
+        socket.once("error", () => {
+          clearTimeout(timeout);
+          resolve(false);
+        });
+      });
 
-          // Wait for socket to be fully ready
-          await new Promise<void>((resolve) => {
-            const checkReady = () => {
-              if (socket?.connected && socket?.id) {
-                resolve();
-              } else if (!isMounted) {
-                resolve();
-              } else {
-                setTimeout(checkReady, 100);
-              }
-            };
-            checkReady();
-          });
-        }
-
-        if (!isMounted || !socket?.connected) return;
-
-        // Small delay to ensure authentication is processed
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        console.log("Joining post room:", postId);
-        socket.emit("join-post", postId);
-        hasJoinedRef.current = true;
-      } catch (error) {
-        console.error("Error joining post room:", error);
+      if (!joined && retryCount < maxRetries) {
+        retryCount++;
+        timeoutId = setTimeout(attemptJoinRoom, 2000);
       }
     };
 
-    joinRoom();
+    // Wait 3 seconds before first attempt (allow for cold start)
+    timeoutId = setTimeout(attemptJoinRoom, 3000);
 
     return () => {
-      if (hasJoinedRef.current) {
-        const socket = getSocket();
-        if (socket?.connected) {
-          socket.emit("leave-post", postId);
-        }
-        hasJoinedRef.current = false;
+      clearTimeout(timeoutId);
+      const socket = getSocket();
+      if (socket?.connected) {
+        socket.emit("leave-post", postId);
       }
     };
-  }, [postId, isAuthenticated, user]);
+  }, [postId]);
 }

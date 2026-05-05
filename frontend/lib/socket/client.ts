@@ -29,10 +29,10 @@ export const initSocket = async () => {
     transports: ["websocket", "polling"],
     withCredentials: true,
     reconnection: true,
-    reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
-    reconnectionDelay: 2000,
-    reconnectionDelayMax: 10000,
-    timeout: 30000,
+    reconnectionAttempts: 20, // Increase from 10
+    reconnectionDelay: 1000, // Start faster
+    reconnectionDelayMax: 30000, // Wait up to 30 seconds for cold starts
+    timeout: 60000, // Increase to 60 seconds for cold starts
   });
 
   socket.on("connect", async () => {

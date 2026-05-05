@@ -1,56 +1,86 @@
-import { useEffect } from "react";
-import { getSocket } from "../socket";
-
 // lib/hooks/usePostRoom.ts
+import { useEffect, useRef } from "react";
+import { getSocket, connectSocket } from "@/lib/socket/client";
+import { roomManager } from "@/lib/socket/roomManager";
+
 export function usePostRoom(postId: string) {
+  const hasJoinedRef = useRef(false);
+  const roomName = `post-${postId}`;
+
   useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 10;
-    let timeoutId: NodeJS.Timeout;
+    const isMounted = true;
 
-    const attemptJoinRoom = async () => {
-      const socket = getSocket();
+    const joinRoom = async () => {
+      try {
+        let socket = getSocket();
 
-      if (!socket?.connected) {
-        console.log(`Socket not connected, retry ${retryCount}/${maxRetries}`);
-        if (retryCount < maxRetries) {
-          retryCount++;
-          timeoutId = setTimeout(attemptJoinRoom, 2000); // Retry every 2 seconds
+        if (!socket || !socket.connected) {
+          socket = await connectSocket();
+
+          // Wait for connection
+          await new Promise<void>((resolve) => {
+            if (socket?.connected) {
+              resolve();
+            } else {
+              const timeout = setTimeout(resolve, 10000);
+              socket?.once("connect", () => {
+                clearTimeout(timeout);
+                resolve();
+              });
+            }
+          });
         }
-        return;
-      }
 
-      // Socket is connected, try joining
-      socket.emit("join-post", postId);
+        if (!isMounted || !socket?.connected) return;
 
-      // Wait for confirmation
-      const joined = await new Promise((resolve) => {
-        const timeout = setTimeout(() => resolve(false), 5000);
-        socket.once("post-joined", () => {
-          clearTimeout(timeout);
-          resolve(true);
+        // Add small delay for authentication on Render free tier
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        socket.emit("join-post", postId);
+        hasJoinedRef.current = true;
+
+        // 🔥 Register with room manager
+        roomManager.addRoom(roomName, () => {
+          // Cleanup function
+          const s = getSocket();
+          if (s?.connected) {
+            s.emit("leave-post", postId);
+          }
         });
-        socket.once("error", () => {
-          clearTimeout(timeout);
-          resolve(false);
-        });
-      });
 
-      if (!joined && retryCount < maxRetries) {
-        retryCount++;
-        timeoutId = setTimeout(attemptJoinRoom, 2000);
+        console.log(`✅ Joined room: ${roomName}`);
+
+        // Listen for successful join
+        socket.once("post-joined", (data) => {
+          console.log(`✅ Confirmed joined room: ${roomName}`, data);
+        });
+      } catch (error) {
+        console.error(`❌ Error joining room ${roomName}:`, error);
+
+        // Retry after delay (for cold starts)
+        if (isMounted) {
+          setTimeout(() => {
+            const socket = getSocket();
+            if (socket?.connected && isMounted) {
+              console.log(`🔄 Retrying join room: ${roomName}`);
+              socket.emit("join-post", postId);
+              hasJoinedRef.current = true;
+              roomManager.addRoom(roomName);
+            }
+          }, 3000);
+        }
       }
     };
 
-    // Wait 3 seconds before first attempt (allow for cold start)
-    timeoutId = setTimeout(attemptJoinRoom, 3000);
+    joinRoom();
 
     return () => {
-      clearTimeout(timeoutId);
+      hasJoinedRef.current = false;
+      roomManager.removeRoom(roomName);
       const socket = getSocket();
       if (socket?.connected) {
         socket.emit("leave-post", postId);
       }
     };
-  }, [postId]);
+  }, [postId, roomName]);
 }

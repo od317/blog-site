@@ -2,6 +2,7 @@ import { io, Socket } from "socket.io-client";
 import { config } from "@/lib/config";
 import { getAccessToken } from "@/app/actions/auth.actions";
 import { Comment, Post } from "@/types/Post";
+import { roomManager } from "./roomManager";
 
 let socket: Socket | null = null;
 let reconnectAttempts = 0;
@@ -71,32 +72,53 @@ export const initSocket = async () => {
 
   socket.on("reconnect", async () => {
     console.log("🔄 Socket reconnected");
-    // Re-authenticate and re-subscribe after reconnection
+
     const accessToken = await getAccessToken();
     if (accessToken && socket) {
       authPromise = new Promise((resolve) => {
         socket?.once("authenticated", (data) => {
           console.log("✅ Socket re-authenticated:", data);
           resolve(true);
+
           // Re-subscribe to feed
           socket?.emit("subscribe-feed");
+
+          // 🔥 RE-JOIN ALL ACTIVE ROOMS
+          const activeRooms = roomManager.getActiveRooms();
+          console.log(
+            `🔄 Re-joining ${activeRooms.length} active rooms:`,
+            activeRooms,
+          );
+
+          activeRooms.forEach((roomName) => {
+            if (roomName.startsWith("post-")) {
+              const postId = roomName.replace("post-", "");
+              socket?.emit("join-post", postId);
+              console.log(`✅ Re-joined room: ${roomName}`);
+            }
+            // Add other room types here if needed
+          });
         });
+
         socket?.once("auth-error", (error) => {
           console.error("❌ Socket re-authentication error:", error);
           resolve(false);
         });
       });
+
       socket?.emit("authenticate", accessToken);
     }
+  });
+
+  // Also handle disconnect to log which rooms were active
+  socket.on("disconnect", (reason) => {
+    console.log("🔌 Socket disconnected:", reason);
+    console.log("📝 Active rooms at disconnect:", roomManager.getActiveRooms());
   });
 
   socket.on("connect_error", (error) => {
     console.error("❌ Socket connection error:", error.message);
     reconnectAttempts++;
-  });
-
-  socket.on("disconnect", (reason) => {
-    console.log("🔌 Socket disconnected:", reason);
   });
 
   return socket;

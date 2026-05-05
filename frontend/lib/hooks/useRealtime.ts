@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+// lib/hooks/useRealtime.ts
+import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/authStore";
 import { usePostStore } from "@/lib/store/postStore";
 import { useNotificationStore } from "@/lib/store/notificationStore";
@@ -33,9 +34,15 @@ export function useRealtime() {
   const { addOrUpdateNotification, refreshUnreadCount } =
     useNotificationStore();
 
+  // Track if listeners are already set up
+  const isInitialized = useRef(false);
+  const cleanupFunctions = useRef<(() => void)[]>([]);
+
   useEffect(() => {
-    if (isAuthenticated) {
+    // Only initialize once when authenticated
+    if (isAuthenticated && !isInitialized.current) {
       console.log("🔌 Initializing real-time connection...");
+      isInitialized.current = true;
 
       const initSocket = async () => {
         const socket = await connectSocket();
@@ -78,7 +85,7 @@ export function useRealtime() {
           },
         );
 
-        // ✅ Add notification listeners with proper types
+        // Notification listeners
         const handleNewNotification = (data: NotificationSocketData) => {
           console.log("🔔🔔🔔 New notification received! 🔔🔔🔔", data);
 
@@ -143,28 +150,55 @@ export function useRealtime() {
         socket.on("new-notification", handleNewNotification);
         socket.on("notification-removed", handleNotificationRemoved);
 
-        return () => {
-          unsubscribeAuthenticated();
-          unsubscribeSubscribed();
-          unsubscribeNewPost();
-          unsubscribePostUpdated();
-          unsubscribePostDeleted();
-          unsubscribeLikeUpdated();
-          socket.off("new-notification", handleNewNotification);
-          socket.off("notification-removed", handleNotificationRemoved);
-          disconnectSocket();
-        };
+        // Store cleanup functions
+        cleanupFunctions.current = [
+          unsubscribeAuthenticated,
+          unsubscribeSubscribed,
+          unsubscribeNewPost,
+          unsubscribePostUpdated,
+          unsubscribePostDeleted,
+          unsubscribeLikeUpdated,
+          () => {
+            socket.off("new-notification", handleNewNotification);
+            socket.off("notification-removed", handleNotificationRemoved);
+          },
+        ];
       };
 
-      const cleanupPromise = initSocket();
-
-      return () => {
-        cleanupPromise.then((cleanup) => cleanup?.());
-      };
-    } else {
-      if (getSocket()?.connected) {
-        disconnectSocket();
-      }
+      initSocket();
     }
-  }, [isAuthenticated, user?.id, addOrUpdateNotification, refreshUnreadCount]);
+
+    // Only cleanup on unmount (not on re-renders)
+    return () => {
+      // This runs when component truly unmounts (logout)
+      // Don't cleanup on navigation
+    };
+  }, [isAuthenticated]); // Remove user?.id and store functions from deps
+
+  // Separate effect for user-specific logic that should update
+  useEffect(() => {
+    // Handle user changes without re-initializing socket
+    if (!isAuthenticated && isInitialized.current) {
+      console.log("🔌 User logged out, cleaning up socket...");
+      // Run cleanup
+      cleanupFunctions.current.forEach((cleanup) => cleanup());
+      cleanupFunctions.current = [];
+      disconnectSocket();
+      isInitialized.current = false;
+    }
+  }, [isAuthenticated]);
+
+  // This effect ensures cleanup on actual unmount (not navigation)
+  useEffect(() => {
+    return () => {
+      // Only runs on component unmount
+      if (isInitialized.current) {
+        console.log("🔌 Component unmounting, cleaning up socket...");
+        cleanupFunctions.current.forEach((cleanup) => cleanup());
+        cleanupFunctions.current = [];
+        disconnectSocket();
+        isInitialized.current = false;
+      }
+    };
+  }, []);
 }

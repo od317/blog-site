@@ -1,65 +1,69 @@
 // lib/hooks/usePostRoom.ts
 import { useEffect, useRef } from "react";
 import { getSocket, initSocket, connectSocket } from "@/lib/socket/client";
+import { useAuthStore } from "../store/authStore";
 
+// lib/hooks/usePostRoom.ts
 export function usePostRoom(postId: string) {
   const hasJoinedRef = useRef(false);
-  const socketReadyRef = useRef(false);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     const isMounted = true;
 
     const joinRoom = async () => {
+      // Wait for authentication first
+      if (!isAuthenticated || !user) {
+        console.log("Waiting for authentication before joining room...");
+        return;
+      }
+
       try {
-        // Get or create socket connection
         let socket = getSocket();
 
         if (!socket || !socket.connected) {
-          console.log("🔌 Socket not connected, connecting...");
+          console.log("Socket not ready, connecting...");
           socket = await connectSocket();
 
-          // Wait a small delay to ensure connection is fully established
-          await new Promise((resolve) => {
-            if (socket?.connected) {
-              resolve(true);
-            } else {
-              const timeout = setTimeout(() => resolve(false), 5000);
-              socket?.once("connect", () => {
-                clearTimeout(timeout);
-                resolve(true);
-              });
-            }
+          // Wait for socket to be fully ready
+          await new Promise<void>((resolve) => {
+            const checkReady = () => {
+              if (socket?.connected && socket?.id) {
+                resolve();
+              } else if (!isMounted) {
+                resolve();
+              } else {
+                setTimeout(checkReady, 100);
+              }
+            };
+            checkReady();
           });
         }
 
-        if (!isMounted) return;
+        if (!isMounted || !socket?.connected) return;
 
-        // Ensure socket is connected and authenticated
-        if (socket?.connected && !hasJoinedRef.current) {
-          console.log("🚪 Joining post room:", postId);
-          socket.emit("join-post", postId);
-          hasJoinedRef.current = true;
-          socketReadyRef.current = true;
-        } else if (!socket?.connected) {
-          console.error("❌ Socket failed to connect");
-        }
+        // Small delay to ensure authentication is processed
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        console.log("Joining post room:", postId);
+        socket.emit("join-post", postId);
+        hasJoinedRef.current = true;
       } catch (error) {
-        console.error("❌ Error joining post room:", error);
+        console.error("Error joining post room:", error);
       }
     };
 
     joinRoom();
 
     return () => {
-      if (hasJoinedRef.current && socketReadyRef.current) {
+      if (hasJoinedRef.current) {
         const socket = getSocket();
         if (socket?.connected) {
-          console.log("🚪 Leaving post room:", postId);
           socket.emit("leave-post", postId);
         }
         hasJoinedRef.current = false;
-        socketReadyRef.current = false;
       }
     };
-  }, [postId]);
+  }, [postId, isAuthenticated, user]);
 }

@@ -21,27 +21,55 @@ export function useLikeRealtime({
 }: UseLikeRealtimeProps) {
   const onLikeUpdatedRef = useRef(onLikeUpdated);
   const currentUserIdRef = useRef(currentUserId);
+  const isRegisteredRef = useRef(false);
 
+  // Update refs when callbacks change
   useEffect(() => {
     onLikeUpdatedRef.current = onLikeUpdated;
     currentUserIdRef.current = currentUserId;
     console.log("📡 useLikeRealtime - currentUserId updated:", currentUserId);
   });
 
+  // Join post room
   useEffect(() => {
     const socket = getSocket();
-    if (!socket) return;
+    if (!socket) {
+      console.log("📡 No socket available, cannot join post room");
+      return;
+    }
 
-    socket.emit("join-post", postId);
+    // Function to join room
+    const joinRoom = () => {
+      if (socket.connected) {
+        console.log(`📡 Joining post room: ${postId}`);
+        socket.emit("join-post", postId);
+        isRegisteredRef.current = true;
+      }
+    };
+
+    // Join now if connected, otherwise wait for connection
+    if (socket.connected) {
+      joinRoom();
+    } else {
+      socket.once("connect", joinRoom);
+    }
 
     return () => {
-      socket.emit("leave-post", postId);
+      if (socket && socket.connected && isRegisteredRef.current) {
+        console.log(`📡 Leaving post room: ${postId}`);
+        socket.emit("leave-post", postId);
+        isRegisteredRef.current = false;
+      }
     };
   }, [postId]);
 
+  // Listen for like updates
   useEffect(() => {
     const socket = getSocket();
-    if (!socket) return;
+    if (!socket) {
+      console.log("📡 No socket available, cannot listen for like updates");
+      return;
+    }
 
     const handleLikeUpdated = (data: {
       postId: string;
@@ -57,23 +85,30 @@ export function useLikeRealtime({
           currentUserId: currentUserIdRef.current,
           isCurrentUser,
           action: data.action,
+          likeCount: data.likeCount,
         });
 
-        // For current user: update both likeCount AND hasLiked
-        // For other users: update only likeCount
         onLikeUpdatedRef.current(
           data.postId,
           data.likeCount,
           data.action,
-          isCurrentUser, // This tells the callback whether to update user status
+          isCurrentUser,
         );
       }
     };
 
-    socket.on("like-updated", handleLikeUpdated);
+    // Only register once
+    if (!isRegisteredRef.current) {
+      console.log(`📡 Registering like-updated listener for post ${postId}`);
+      socket.on("like-updated", handleLikeUpdated);
+      isRegisteredRef.current = true;
+    }
 
     return () => {
-      socket.off("like-updated", handleLikeUpdated);
+      if (socket) {
+        socket.off("like-updated", handleLikeUpdated);
+        isRegisteredRef.current = false;
+      }
     };
   }, [postId]);
 }

@@ -64,6 +64,32 @@ export const initSocket = async () => {
     }
   });
 
+  // Add this handler for reconnection
+  socket.on("reconnect_attempt", (attemptNumber) => {
+    console.log(`🔄 Socket reconnection attempt ${attemptNumber}`);
+  });
+
+  socket.on("reconnect", async () => {
+    console.log("🔄 Socket reconnected");
+    // Re-authenticate and re-subscribe after reconnection
+    const accessToken = await getAccessToken();
+    if (accessToken && socket) {
+      authPromise = new Promise((resolve) => {
+        socket?.once("authenticated", (data) => {
+          console.log("✅ Socket re-authenticated:", data);
+          resolve(true);
+          // Re-subscribe to feed
+          socket?.emit("subscribe-feed");
+        });
+        socket?.once("auth-error", (error) => {
+          console.error("❌ Socket re-authentication error:", error);
+          resolve(false);
+        });
+      });
+      socket?.emit("authenticate", accessToken);
+    }
+  });
+
   socket.on("connect_error", (error) => {
     console.error("❌ Socket connection error:", error.message);
     reconnectAttempts++;

@@ -1,7 +1,6 @@
-// components/post/PostDetails/PostLikeStatus.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { api } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
@@ -20,19 +19,40 @@ export function PostLikeStatus({
 }: PostLikeStatusProps) {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
+
   const [hasLiked, setHasLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiking, setIsLiking] = useState(false);
 
+  const fetchedPostIdRef = useRef<string | null>(null);
+
+  // Update likeCount when initialLikeCount changes from parent
   useEffect(() => {
-    if (isAuthLoading) {
-      return;
+    setLikeCount(initialLikeCount);
+  }, [initialLikeCount]);
+
+  // Fetch like status on client side
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    // Reset state when postId changes
+    if (fetchedPostIdRef.current !== postId) {
+      console.log("🔄 Post changed, resetting like state for post:", postId);
+      setHasLiked(false);
+      setLikeCount(initialLikeCount);
+      setIsLoading(true);
+      fetchedPostIdRef.current = postId;
     }
 
     if (!isAuthenticated) {
       setHasLiked(false);
       setIsLoading(false);
+      return;
+    }
+
+    // Skip if we already fetched for this post
+    if (fetchedPostIdRef.current === postId && !isLoading) {
       return;
     }
 
@@ -58,8 +78,9 @@ export function PostLikeStatus({
     };
 
     fetchLikeStatus();
-  }, [postId, isAuthenticated, isAuthLoading]);
+  }, [postId, initialLikeCount, isAuthenticated, isAuthLoading, isLoading]);
 
+  // Handle real-time updates from other users
   const handleLikeUpdate = useCallback(
     (
       updatedPostId: string,
@@ -77,15 +98,17 @@ export function PostLikeStatus({
         currentHasLiked: hasLiked,
       });
 
+      // Always update like count
       setLikeCount(newLikeCount);
 
+      // Only update user's like status if this event is for the current user
       if (shouldUpdateUserStatus) {
         const newHasLiked = action === "liked";
         console.log("📡 Updating user like status to:", newHasLiked);
         setHasLiked(newHasLiked);
       }
     },
-    [postId, hasLiked],
+    [postId],
   );
 
   useLikeRealtime({
@@ -105,6 +128,7 @@ export function PostLikeStatus({
     const newHasLiked = !hasLiked;
     const newLikeCount = newHasLiked ? likeCount + 1 : likeCount - 1;
 
+    // Optimistic update
     setHasLiked(newHasLiked);
     setLikeCount(newLikeCount);
     setIsLiking(true);
@@ -116,6 +140,7 @@ export function PostLikeStatus({
         await api.delete(`/likes/${postId}/like`);
       }
     } catch (error) {
+      // Revert on error
       setHasLiked(!newHasLiked);
       setLikeCount(newHasLiked ? likeCount : likeCount + 1);
       console.error("Like action failed:", error);

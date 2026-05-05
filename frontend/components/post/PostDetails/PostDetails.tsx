@@ -58,6 +58,7 @@ export const PostDetails = memo(function PostDetails({
           console.log("🔄 Post updated in store:", {
             id: currentPost?.id,
             title: currentPost?.title,
+            likeCount: currentPost?.like_count,
           });
         }
       });
@@ -150,9 +151,10 @@ export const PostDetails = memo(function PostDetails({
         <div className="p-6">
           <PostContent title={post.title} content={post.content} />
 
+          {/* Use post.like_count from store instead of initial value */}
           <PostActions
             postId={post.id}
-            likeCount={post.like_count}
+            likeCount={post.like_count ?? initialPost.like_count}
           />
         </div>
       </article>

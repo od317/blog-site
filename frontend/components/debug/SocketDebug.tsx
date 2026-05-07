@@ -1,48 +1,32 @@
+// components/debug/SocketDebug.tsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSocket, connectSocket } from "@/lib/socket/client";
-import { useAuthStore } from "@/lib/store/authStore";
+import { getSocket } from "@/lib/socket/client";
 
 export function SocketDebug() {
-  const [status, setStatus] = useState("Disconnected");
-  const { user } = useAuthStore();
+  const [status, setStatus] = useState({ connected: false, id: "N/A" });
 
-  // useEffect(() => {
-  //   const checkSocket = async () => {
-  //     const socket = await connectSocket();
+  useEffect(() => {
+    const check = () => {
+      const s = getSocket();
+      setStatus({
+        connected: s?.connected || false,
+        id: s?.id || "N/A",
+      });
+    };
 
-  //     if (socket) {
-  //       setStatus(socket.connected ? "Connected" : "Connecting");
+    check();
+    const interval = setInterval(check, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
-  //       socket.on("connect", () => {
-  //         console.log("🎯 SOCKET CONNECTED EVENT");
-  //         setStatus("Connected");
-  //       });
-
-  //       socket.on("disconnect", () => {
-  //         console.log("🎯 SOCKET DISCONNECTED EVENT");
-  //         setStatus("Disconnected");
-  //       });
-
-  //       socket.on("authenticated", (data) => {
-  //         console.log("🎯 SOCKET AUTHENTICATED EVENT", data);
-  //       });
-
-  //       // Listen for all events for debugging
-  //       socket.onAny((event, ...args) => {
-  //         console.log(`🎯 SOCKET EVENT: ${event}`, args);
-  //       });
-  //     }
-  //   };
-
-  //   checkSocket();
-  // }, []);
+  if (process.env.NODE_ENV !== "production") return null;
 
   return (
-    <div className="fixed bottom-4 left-4 bg-black text-white p-2 rounded-lg text-xs z-50">
-      <div>Socket: {status}</div>
-      <div>User: {user?.id?.slice(0, 8)}...</div>
+    <div className="fixed bottom-4 right-4 z-50 bg-black/80 text-white p-3 rounded-lg text-xs font-mono">
+      <div>Socket: {status.connected ? "🟢" : "🔴"}</div>
+      <div>ID: {status.id}</div>
     </div>
   );
 }

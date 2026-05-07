@@ -19,7 +19,7 @@ export const initSocket = async () => {
 
   if (socket && !socket.connected)
     console.log("socket is created but not connected");
-  
+
   const SOCKET_URL = config.socketUrl;
   console.log("🔌 Initializing socket connection to:", SOCKET_URL);
 
@@ -123,6 +123,15 @@ export const initSocket = async () => {
     console.error("❌ Socket connection error:", error.message);
     reconnectAttempts++;
   });
+
+  if (typeof window !== "undefined" && (window as any).__SOCKET_TRACE__) {
+    socket.onAny((event, ...args) => {
+      // Filter out noisy events
+      if (event !== "ping" && event !== "pong") {
+        console.log(`📨 [SOCKET EVENT] ${event}`, args.length > 0 ? args : "");
+      }
+    });
+  }
 
   return socket;
 };

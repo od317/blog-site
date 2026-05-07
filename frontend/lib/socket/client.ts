@@ -26,14 +26,14 @@ export const initSocket = async () => {
   }
 
   socket = io(SOCKET_URL, {
-    autoConnect: false,
-    transports: ["websocket", "polling"],
+    autoConnect: true, // CHANGE: Let it connect immediately
+    transports: ["websocket"], // CHANGE: Remove polling, WebSocket only
     withCredentials: true,
     reconnection: true,
-    reconnectionAttempts: 20, // Increase from 10
-    reconnectionDelay: 1000, // Start faster
-    reconnectionDelayMax: 30, // Wait up to 30 seconds for cold starts
-    timeout: 60000, // Increase to 60 seconds for cold starts
+    reconnectionAttempts: 5, // CHANGE: Reduce, 20 is overkill
+    reconnectionDelay: 500, // CHANGE: Start faster (0.5 sec)
+    reconnectionDelayMax: 5000, // CHANGE: Max 5 seconds, not 30
+    timeout: 10000, // CHANGE: 10 seconds is enough
   });
 
   socket.on("connect", async () => {

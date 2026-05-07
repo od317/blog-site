@@ -1,6 +1,7 @@
+// components/post/PostList.tsx
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { usePostStore } from "@/lib/store/postStore";
 import { useSearchParams } from "next/navigation";
 import { PostCard } from "./PostCard";
@@ -8,16 +9,26 @@ import { PostSkeleton } from "./PostSkeleton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Card } from "@/components/ui/Card";
 import { FileText, CheckCircle2 } from "lucide-react";
+import { Post } from "@/types/Post";
 
-export function PostList() {
+interface PostListProps {
+  initialPosts: Post[];
+}
+
+export function PostList({ initialPosts }: PostListProps) {
   const { posts, isLoading, isFetchingMore, error, hasMore, fetchMorePosts } =
     usePostStore();
-  
+
   const searchParams = useSearchParams();
   const currentSort = searchParams.get("sort") || "latest";
 
   const observerRef = useRef<IntersectionObserver>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Use initialPosts until store is synced
+  const displayPosts = posts.length > 0 ? posts : initialPosts;
+  const isInitialLoading =
+    isLoading && posts.length === 0 && initialPosts.length === 0;
 
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
@@ -55,33 +66,17 @@ export function PostList() {
     };
   }, [handleObserver]);
 
-  // Loading state - initial
-  if (isLoading && posts.length === 0) {
-    return (
-      <div className="space-y-4">
-        <PostSkeleton />
-        <PostSkeleton />
-        <PostSkeleton />
-      </div>
-    );
-  }
-
-  if(isLoading){
-    return (
-      <div className="space-y-4">
-        <PostSkeleton />
-        <PostSkeleton />
-        <PostSkeleton />
-      </div>
-    );
-  }
-
   // Error state
-  if (error) {
+  if (error && displayPosts.length === 0) {
     return (
       <Card className="p-6 text-center border-accent-500/30">
         <div className="text-accent-400 mb-3">
-          <svg className="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-12 w-12 mx-auto"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -102,8 +97,8 @@ export function PostList() {
     );
   }
 
-  // Empty state
-  if (posts.length === 0 && !isLoading) {
+  // Empty state - only if both store and initial posts are empty
+  if (displayPosts.length === 0 && !isLoading) {
     return (
       <Card className="p-8 text-center border-primary-500/20">
         <div className="mx-auto mb-4 text-primary-400">
@@ -120,7 +115,7 @@ export function PostList() {
   return (
     <>
       <div className="space-y-4">
-        {posts.map((post, index) => (
+        {displayPosts.map((post, index) => (
           <PostCard
             key={`${post.id}-${post.updated_at || index}`}
             post={post}
@@ -136,7 +131,7 @@ export function PostList() {
           </div>
         )}
 
-        {!hasMore && posts.length > 0 && (
+        {!hasMore && displayPosts.length > 0 && (
           <div className="text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary-500/20 bg-primary-500/5 px-4 py-2 text-sm text-primary-400">
               <CheckCircle2 className="h-4 w-4" />

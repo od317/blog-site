@@ -15,6 +15,8 @@ interface PostStore {
   currentSort: string; // Add current sort tracking
 
   fetchPosts: (sort: string, append?: boolean) => Promise<void>;
+  hydrate: (posts: Post[], sort: string) => void;
+  setInitialPosts: (posts: Post[], sort: string) => void;
   fetchMorePosts: (sort: string) => Promise<void>;
   createPost: (data: { title: string; content: string }) => Promise<Post>;
   ensurePost: (post: Post) => void;
@@ -45,7 +47,15 @@ export const usePostStore = create<PostStore>((set, get) => ({
   hasMore: true,
   currentOffset: 0,
   currentSort: "latest",
-
+  hydrate: (posts: Post[], sort: string) => {
+    set({
+      posts,
+      isLoading: false,
+      hasMore: posts.length === LIMIT,
+      currentOffset: posts.length,
+      currentSort: sort,
+    });
+  },
   resetPagination: () => {
     set({
       currentOffset: 0,
@@ -55,17 +65,28 @@ export const usePostStore = create<PostStore>((set, get) => ({
     });
   },
 
+  // lib/store/postStore.ts - Update fetchPosts
+  setInitialPosts: (posts: Post[], sort: string) => {
+    set({
+      posts,
+      isLoading: false,
+      hasMore: posts.length === LIMIT,
+      currentOffset: posts.length,
+      currentSort: sort,
+    });
+  },
   fetchPosts: async (sort: string, append = false) => {
     const state = get();
 
-    // If sort changed and it's not an append, set loading to true
     if (!append) {
-      set({
-        isLoading: true,
-        error: null,
-        posts: [],
-        currentSort: sort,
-      });
+      // Only show loading if we're changing sorts
+      if (state.currentSort !== sort) {
+        set({
+          isLoading: true,
+          error: null,
+          currentSort: sort,
+        });
+      }
     } else {
       set({ isFetchingMore: true, error: null });
     }

@@ -1,38 +1,57 @@
+// components/post/PostFeedWrapper.tsx
 "use client";
 
 import { useEffect, useRef } from "react";
 import { PostList } from "./PostList";
 import { usePostStore } from "@/lib/store/postStore";
+import { Post } from "@/types/Post";
 
 interface PostFeedWrapperProps {
   initialSort: string;
+  initialPosts: Post[];
 }
 
-export function PostFeedWrapper({ initialSort }: PostFeedWrapperProps) {
-  const { fetchPosts, resetPagination, posts, isLoading } = usePostStore();
+export function PostFeedWrapper({
+  initialSort,
+  initialPosts,
+}: PostFeedWrapperProps) {
+  const { fetchMorePosts } = usePostStore();
   const hasInitialized = useRef(false);
-  const currentSortRef = useRef(initialSort);
 
-  // When sort changes, reset and fetch new data
+  // Sync SSR posts to store on mount
   useEffect(() => {
-    if (currentSortRef.current !== initialSort) {
-      console.log(
-        `🔄 Sort changed from ${currentSortRef.current} to ${initialSort}`,
-      );
-      currentSortRef.current = initialSort;
-      resetPagination();
-      fetchPosts(initialSort, false);
-    }
-  }, [initialSort, fetchPosts, resetPagination]);
-
-  // Initial fetch
-  useEffect(() => {
-    if (!hasInitialized.current && posts.length === 0) {
+    if (!hasInitialized.current && initialPosts.length > 0) {
+      console.log(`📡 Syncing ${initialPosts.length} SSR posts to store`);
+      usePostStore.setState({
+        posts: initialPosts,
+        isLoading: false,
+        hasMore: initialPosts.length === 10,
+        currentOffset: initialPosts.length,
+        currentSort: initialSort,
+      });
       hasInitialized.current = true;
-      console.log(`📡 Initial fetch with sort: ${initialSort}`);
-      fetchPosts(initialSort, false);
     }
-  }, [initialSort, fetchPosts, posts.length]);
+  }, [initialPosts, initialSort]);
 
-  return <PostList />;
+  // Handle sort changes
+  useEffect(() => {
+    if (!hasInitialized.current) return;
+
+    const currentSort = usePostStore.getState().currentSort;
+
+    if (currentSort !== initialSort) {
+      console.log(`🔄 Sort changed from ${currentSort} to ${initialSort}`);
+      usePostStore.setState({
+        isLoading: true,
+        error: null,
+        posts: [],
+        currentSort: initialSort,
+        currentOffset: 0,
+        hasMore: true,
+      });
+      fetchMorePosts(initialSort);
+    }
+  }, [initialSort, fetchMorePosts]);
+
+  return <PostList initialPosts={initialPosts} />;
 }

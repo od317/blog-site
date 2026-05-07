@@ -47,7 +47,6 @@ export async function addComment({
       };
     }
 
-
     return result.data;
   } catch (error) {
     console.error("📝 Add comment action error:", error);
@@ -81,9 +80,6 @@ export async function deleteComment(
         error: result.error || "Failed to delete comment",
       };
     }
-
-    revalidatePath(`/posts/${postId}`);
-    console.log("🗑️ Revalidated path:", `/posts/${postId}`);
 
     return { success: true };
   } catch (error) {
@@ -120,9 +116,6 @@ export async function updateComment({
         error: result.error || "Failed to update comment",
       };
     }
-
-    revalidatePath(`/posts/${postId}`);
-    console.log("✏️ Revalidated path:", `/posts/${postId}`);
 
     return {
       success: true,

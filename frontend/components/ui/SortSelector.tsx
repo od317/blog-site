@@ -19,14 +19,26 @@ const sortOptions = [
 export function SortSelector({ currentSort }: SortSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const resetPagination = usePostStore((state) => state.resetPagination);
+  const { fetchPosts } = usePostStore();
 
   const handleSortChange = (sort: string) => {
-    resetPagination();
+    if (sort === currentSort) return;
 
+    // Update URL without full page navigation
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", sort);
-    router.push(`/?${params.toString()}`);
+    router.replace(`/?${params.toString()}`, { scroll: false });
+
+    // Fetch new data client-side
+    usePostStore.setState({
+      isLoading: true,
+      error: null,
+      posts: [],
+      currentSort: sort,
+      currentOffset: 0,
+      hasMore: true,
+    });
+    fetchPosts(sort, false);
   };
 
   return (

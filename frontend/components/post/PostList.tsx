@@ -1,7 +1,7 @@
 // components/post/PostList.tsx
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { usePostStore } from "@/lib/store/postStore";
 import { useSearchParams } from "next/navigation";
 import { PostCard } from "./PostCard";
@@ -25,10 +25,8 @@ export function PostList({ initialPosts }: PostListProps) {
   const observerRef = useRef<IntersectionObserver>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Use initialPosts until store is synced
+  // Use initialPosts until store has data
   const displayPosts = posts.length > 0 ? posts : initialPosts;
-  const isInitialLoading =
-    isLoading && posts.length === 0 && initialPosts.length === 0;
 
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
@@ -66,6 +64,17 @@ export function PostList({ initialPosts }: PostListProps) {
     };
   }, [handleObserver]);
 
+  // Show skeleton when loading new sort
+  if (isLoading && posts.length === 0) {
+    return (
+      <div className="space-y-4">
+        <PostSkeleton />
+        <PostSkeleton />
+        <PostSkeleton />
+      </div>
+    );
+  }
+
   // Error state
   if (error && displayPosts.length === 0) {
     return (
@@ -97,7 +106,7 @@ export function PostList({ initialPosts }: PostListProps) {
     );
   }
 
-  // Empty state - only if both store and initial posts are empty
+  // Empty state
   if (displayPosts.length === 0 && !isLoading) {
     return (
       <Card className="p-8 text-center border-primary-500/20">
@@ -123,7 +132,6 @@ export function PostList({ initialPosts }: PostListProps) {
         ))}
       </div>
 
-      {/* Infinite scroll trigger and loading indicator */}
       <div ref={loadMoreRef} className="py-8">
         {isFetchingMore && (
           <div className="flex justify-center">

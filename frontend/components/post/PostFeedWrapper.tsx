@@ -15,13 +15,12 @@ export function PostFeedWrapper({
   initialSort,
   initialPosts,
 }: PostFeedWrapperProps) {
-  const { fetchMorePosts } = usePostStore();
-  const hasInitialized = useRef(false);
+  const hydrated = useRef(false);
 
-  // Sync SSR posts to store on mount
+  // Sync SSR posts to store on mount ONLY (initial page load)
   useEffect(() => {
-    if (!hasInitialized.current && initialPosts.length > 0) {
-      console.log(`📡 Syncing ${initialPosts.length} SSR posts to store`);
+    if (!hydrated.current) {
+      console.log(`📡 Hydrating store with ${initialPosts.length} SSR posts`);
       usePostStore.setState({
         posts: initialPosts,
         isLoading: false,
@@ -29,29 +28,9 @@ export function PostFeedWrapper({
         currentOffset: initialPosts.length,
         currentSort: initialSort,
       });
-      hasInitialized.current = true;
+      hydrated.current = true;
     }
-  }, [initialPosts, initialSort]);
-
-  // Handle sort changes
-  useEffect(() => {
-    if (!hasInitialized.current) return;
-
-    const currentSort = usePostStore.getState().currentSort;
-
-    if (currentSort !== initialSort) {
-      console.log(`🔄 Sort changed from ${currentSort} to ${initialSort}`);
-      usePostStore.setState({
-        isLoading: true,
-        error: null,
-        posts: [],
-        currentSort: initialSort,
-        currentOffset: 0,
-        hasMore: true,
-      });
-      fetchMorePosts(initialSort);
-    }
-  }, [initialSort, fetchMorePosts]);
+  }, []); // Empty deps - run once on mount
 
   return <PostList initialPosts={initialPosts} />;
 }

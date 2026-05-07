@@ -1,45 +1,16 @@
 // components/post/PostDetails/ActiveReaders.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { getSocket, onReadersCountUpdated } from "@/lib/socket/client";
 import { Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ActiveReadersProps {
   postId: string;
+  readerCount: number; // ✅ Now received as prop
 }
 
-export function ActiveReaders({ postId }: ActiveReadersProps) {
-  const [readerCount, setReaderCount] = useState<number>(0);
-
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-
-    if (socket.connected) {
-      socket.emit("join-post", postId);
-    } else {
-      socket.once("connect", () => {
-        socket.emit("join-post", postId);
-      });
-    }
-
-    const unsubscribe = onReadersCountUpdated(
-      ({ postId: updatedPostId, count }) => {
-        if (updatedPostId === postId) {
-          setReaderCount(count);
-        }
-      },
-    );
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-      if (socket && socket.connected) {
-        socket.emit("leave-post", postId);
-      }
-    };
-  }, [postId]);
+export function ActiveReaders({ postId, readerCount }: ActiveReadersProps) {
+  console.log(`[ActiveReaders] post=${postId} readers=${readerCount}`);
 
   if (readerCount <= 1) {
     return null;

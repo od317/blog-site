@@ -10,7 +10,7 @@ import { PostHeader } from "./PostHeader";
 import { PostFeaturedImage } from "./PostFeaturedImage";
 import { PostContent } from "./PostContent";
 import { PostActions } from "./PostActions";
-import { usePostRoom } from "@/lib/hooks/usePostRoom";
+import { usePostRoom, usePostRealtime } from "@/lib/hooks/useRealtime"; // Changed import
 import { usePostFromStore } from "@/lib/hooks/usePostFromStore";
 import { usePostStore } from "@/lib/store/postStore";
 import { ArrowLeft } from "lucide-react";
@@ -40,11 +40,13 @@ export const PostDetails = memo(function PostDetails({
 
   const post = usePostFromStore(initialPost.id, initialPost);
 
+  // ✅ CHANGED: Use the new unified hooks
+  usePostRoom(post!.id);
+  const { readerCount } = usePostRealtime(post!.id);
+
   const [comments, setComments] = useState<Comment[]>(
     initialPost.comments || [],
   );
-
-  usePostRoom(post!.id);
 
   const updateCommentCount = usePostStore((state) => state.updateCommentCount);
 
@@ -59,6 +61,7 @@ export const PostDetails = memo(function PostDetails({
             id: currentPost?.id,
             title: currentPost?.title,
             likeCount: currentPost?.like_count,
+            commentCount: currentPost?.comment_count,
           });
         }
       });
@@ -91,7 +94,7 @@ export const PostDetails = memo(function PostDetails({
 
       return newComment;
     },
-    [updateCommentCount, post!.id, post!.comment_count],
+    [updateCommentCount, post, post!.id],
   );
 
   const handleCommentUpdated = useCallback((updatedComment: Comment) => {
@@ -111,7 +114,7 @@ export const PostDetails = memo(function PostDetails({
 
       updateCommentCount(post!.id, Math.max(0, currentCount - 1));
     },
-    [updateCommentCount, post!.id, post!.comment_count],
+    [updateCommentCount, post, post!.id],
   );
 
   if (!post) {
@@ -132,7 +135,8 @@ export const PostDetails = memo(function PostDetails({
       </Link>
 
       <article className="rounded-xl border border-primary-500/10 bg-card shadow-sm overflow-hidden">
-        <ActiveReaders postId={post.id} />
+        {/* ✅ CHANGED: Pass readerCount from usePostRealtime */}
+        <ActiveReaders postId={post.id} readerCount={readerCount} />
 
         <div className="p-6">
           <PostHeader
@@ -151,7 +155,6 @@ export const PostDetails = memo(function PostDetails({
         <div className="p-6">
           <PostContent title={post.title} content={post.content} />
 
-          {/* Use post.like_count from store instead of initial value */}
           <PostActions
             postId={post.id}
             likeCount={post.like_count ?? initialPost.like_count}

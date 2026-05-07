@@ -1,3 +1,4 @@
+// controllers/save.controller.js
 const SavedPost = require("../models/SavedPost");
 const Post = require("../models/Post");
 const Notification = require("../models/Notification");
@@ -23,6 +24,10 @@ exports.savePost = async (req, res) => {
 
     // Create notification for post owner (don't notify yourself)
     if (post.user_id !== userId) {
+      console.log(
+        `📢 Creating save notification: User ${userId} saved post ${postId} owned by ${post.user_id}`,
+      );
+
       await Notification.create({
         userId: post.user_id,
         type: "save",
@@ -31,12 +36,15 @@ exports.savePost = async (req, res) => {
         commentId: null,
       });
 
+      // Emit real-time notification
       const io = req.app.get("io");
       io.to(`user:${post.user_id}`).emit("new-notification", {
         type: "save",
         postId: postId,
         postTitle: post.title,
       });
+
+      console.log(`📢 Notification emitted to user:${post.user_id}`);
     }
 
     res.json({
@@ -57,12 +65,35 @@ exports.unsavePost = async (req, res) => {
     const { postId } = req.params;
     const userId = req.userId;
 
+    // Get post info first (to know the owner)
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
     const removed = await SavedPost.unsave(postId, userId);
     if (!removed) {
       return res.status(400).json({ error: "Post not saved" });
     }
 
     const savedCount = await SavedPost.getSavedPostsCount(userId);
+
+    // ✅ Remove the save notification for the post owner
+    const io = req.app.get("io");
+
+    // Delete the save notification from database
+    await Notification.deleteByPostAndActor(postId, userId);
+
+    // Notify the post owner to remove the notification from UI
+    if (post.user_id !== userId) {
+      io.to(`user:${post.user_id}`).emit("notification-removed", {
+        type: "save",
+        postId: postId,
+        actorId: userId,
+      });
+    }
+
+    console.log(`📢 Save removed: post ${postId} by user ${userId}`);
 
     res.json({
       success: true,

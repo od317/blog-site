@@ -223,54 +223,53 @@ class Notification {
   // Delete notification by post_id and actor_id
   static async deleteByPostAndActor(postId, actorId) {
     const query = `
-      DELETE FROM notifications 
-      WHERE post_id = $1 AND actor_id = $2 AND type = 'like'
-      RETURNING id
-    `;
+    DELETE FROM notifications 
+    WHERE post_id = $1 AND actor_id = $2 AND (type = 'like' OR type = 'save')
+    RETURNING id
+  `;
     const result = await pool.query(query, [postId, actorId]);
-    console.log(`🗑️ Deleted ${result.rowCount} like notifications`);
+    console.log(`🗑️ Deleted ${result.rowCount} like/save notifications`);
     return result.rows;
   }
 
   // Delete notification by post_id and actor_id for comments
-static async deleteByPostAndComment(postId, actorId, type, commentId = null) {
-  let query;
-  let values;
-  
-  if (commentId) {
-    // Delete specific reply notification
-    query = `
+  static async deleteByPostAndComment(postId, actorId, type, commentId = null) {
+    let query;
+    let values;
+
+    if (commentId) {
+      // Delete specific reply notification
+      query = `
       DELETE FROM notifications 
       WHERE post_id = $1 AND actor_id = $2 AND type = $3 AND comment_id = $4
       RETURNING id
     `;
-    values = [postId, actorId, type, commentId];
-  } else {
-    // Delete all comment notifications for this actor on this post
-    query = `
+      values = [postId, actorId, type, commentId];
+    } else {
+      // Delete all comment notifications for this actor on this post
+      query = `
       DELETE FROM notifications 
       WHERE post_id = $1 AND actor_id = $2 AND type = $3
       RETURNING id
     `;
-    values = [postId, actorId, type];
-  }
-  
-  const result = await pool.query(query, values);
-  console.log(`🗑️ Deleted ${result.rowCount} comment/notification(s)`);
-  return result.rows;
-}
+      values = [postId, actorId, type];
+    }
 
-static async deleteFollowNotification(userId, actorId) {
-  const query = `
+    const result = await pool.query(query, values);
+    console.log(`🗑️ Deleted ${result.rowCount} comment/notification(s)`);
+    return result.rows;
+  }
+
+  static async deleteFollowNotification(userId, actorId) {
+    const query = `
     DELETE FROM notifications 
     WHERE user_id = $1 AND actor_id = $2 AND type = 'follow'
     RETURNING id
   `;
-  const result = await pool.query(query, [userId, actorId]);
-  console.log(`🗑️ Deleted ${result.rowCount} follow notification(s)`);
-  return result.rows;
-}
-
+    const result = await pool.query(query, [userId, actorId]);
+    console.log(`🗑️ Deleted ${result.rowCount} follow notification(s)`);
+    return result.rows;
+  }
 }
 
 module.exports = Notification;

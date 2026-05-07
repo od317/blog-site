@@ -121,8 +121,11 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ========== SOCKET.IO CONNECTION HANDLING ==========
 // ========== ACTIVE READERS TRACKING ==========
 const activeReaders = new Map();
+// Track which post each socket is currently in
+const socketPostMap = new Map(); // socket.id -> postId
 
 // ========== SOCKET.IO CONNECTION HANDLING ==========
 io.on("connection", (socket) => {
@@ -130,6 +133,34 @@ io.on("connection", (socket) => {
   console.log("🔌 Total connected clients:", io.engine.clientsCount);
 
   let currentPostId = null;
+
+  // Check if this socket already has a post room (reconnection)
+  const existingPostId = socketPostMap.get(socket.id);
+  if (existingPostId) {
+    console.log(
+      `🔄 Socket ${socket.id} reconnected, was in post: ${existingPostId}`,
+    );
+    currentPostId = existingPostId;
+
+    // Re-add to active readers
+    if (!activeReaders.has(existingPostId)) {
+      activeReaders.set(existingPostId, new Set());
+    }
+    activeReaders.get(existingPostId).add(socket.id);
+
+    // Re-join the room
+    socket.join(`post-${existingPostId}`);
+
+    // Emit updated count
+    const readerCount = activeReaders.get(existingPostId).size;
+    console.log(
+      `📖 Socket reconnected to post ${existingPostId}, readers: ${readerCount}`,
+    );
+    io.to(`post-${existingPostId}`).emit("readers-count-updated", {
+      postId: existingPostId,
+      count: readerCount,
+    });
+  }
 
   socket.on("authenticate", (token) => {
     try {
@@ -161,7 +192,27 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join-post", (postId) => {
+    console.log(
+      `🚪 [JOIN] Socket ${socket.id} joining post ${postId} | currentPostId=${currentPostId}`,
+    );
+
+    // If already in the same post, don't do anything
+    if (currentPostId === postId) {
+      console.log(
+        `⚠️ [JOIN] Socket ${socket.id} already in post ${postId}, skipping`,
+      );
+
+      // Still emit current count to keep client in sync
+      const currentCount = activeReaders.get(postId)?.size || 0;
+      socket.emit("post-joined", { postId, readerCount: currentCount });
+      return;
+    }
+
+    // Remove from previous post if any
     if (currentPostId) {
+      console.log(
+        `🚪 [LEAVE] Socket ${socket.id} leaving previous post ${currentPostId}`,
+      );
       const previousReaders = activeReaders.get(currentPostId);
       if (previousReaders) {
         previousReaders.delete(socket.id);
@@ -170,14 +221,21 @@ io.on("connection", (socket) => {
         }
       }
       socket.leave(`post-${currentPostId}`);
-      const newCount = previousReaders?.size || 0;
+
+      // Emit updated count for old room AFTER removing
+      const newCount = activeReaders.get(currentPostId)?.size || 0;
+      console.log(
+        `📢 [EMIT] readers-count-updated for old post ${currentPostId}: ${newCount}`,
+      );
       io.to(`post-${currentPostId}`).emit("readers-count-updated", {
         postId: currentPostId,
         count: newCount,
       });
     }
 
+    // Join new post
     currentPostId = postId;
+    socketPostMap.set(socket.id, postId); // Track for reconnection
     socket.join(`post-${postId}`);
 
     if (!activeReaders.has(postId)) {
@@ -187,9 +245,13 @@ io.on("connection", (socket) => {
 
     const readerCount = activeReaders.get(postId).size;
     console.log(
-      `📖 User joined post ${postId}, active readers: ${readerCount}`,
+      `📖 [JOIN] User joined post ${postId}, active readers: ${readerCount} | readers: ${[...activeReaders.get(postId)]}`,
     );
 
+    // Emit to ALL in room (including the new joiner)
+    console.log(
+      `📢 [EMIT] readers-count-updated for new post ${postId}: ${readerCount}`,
+    );
     io.to(`post-${postId}`).emit("readers-count-updated", {
       postId,
       count: readerCount,
@@ -199,16 +261,26 @@ io.on("connection", (socket) => {
   });
 
   socket.on("leave-post", (postId) => {
+    console.log(
+      `🚪 [LEAVE] Socket ${socket.id} leaving post ${postId} | currentPostId=${currentPostId}`,
+    );
+
     if (currentPostId === postId) {
       const readers = activeReaders.get(postId);
       if (readers) {
         readers.delete(socket.id);
         const readerCount = readers.size;
+
+        console.log(
+          `📖 [LEAVE] User left post ${postId}, remaining readers: ${readerCount}`,
+        );
+
         if (readerCount === 0) {
           activeReaders.delete(postId);
         }
+
         console.log(
-          `📖 User left post ${postId}, active readers: ${readerCount}`,
+          `📢 [EMIT] readers-count-updated after leave: ${readerCount}`,
         );
         io.to(`post-${postId}`).emit("readers-count-updated", {
           postId,
@@ -216,6 +288,7 @@ io.on("connection", (socket) => {
         });
       }
       socket.leave(`post-${postId}`);
+      socketPostMap.delete(socket.id); // Remove from tracking
       currentPostId = null;
     }
   });
@@ -238,22 +311,34 @@ io.on("connection", (socket) => {
     console.log(`📖 Socket left profile room: ${room}`);
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", (reason) => {
+    console.log(
+      `🔌 [DISCONNECT] Socket ${socket.id} disconnected. Reason: ${reason} | was in post: ${currentPostId}`,
+    );
+
     if (currentPostId) {
       const readers = activeReaders.get(currentPostId);
       if (readers) {
         readers.delete(socket.id);
         const readerCount = readers.size;
+
+        console.log(
+          `📖 [DISCONNECT] Removed from post ${currentPostId}, remaining readers: ${readerCount}`,
+        );
+
         if (readerCount === 0) {
           activeReaders.delete(currentPostId);
         }
+
+        console.log(
+          `📢 [EMIT] readers-count-updated after disconnect: ${readerCount}`,
+        );
         io.to(`post-${currentPostId}`).emit("readers-count-updated", {
           postId: currentPostId,
           count: readerCount,
         });
       }
     }
-    console.log("🔌 Client disconnected:", socket.id);
   });
 });
 

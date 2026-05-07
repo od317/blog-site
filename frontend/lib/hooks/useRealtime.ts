@@ -273,43 +273,60 @@ export function useRealtime() {
   }, []);
 }
 
-// ──────────────────────────────────────────────
-// HOOK: usePostRoom (join/leave post rooms)
-// ──────────────────────────────────────────────
 export function usePostRoom(postId: string) {
   const roomName = `post-${postId}`;
   const hasJoined = useRef(false);
   const retryCount = useRef(0);
-
+  const MAX_RETRIES = 30;
   useEffect(() => {
     console.log(`[usePostRoom:Effect] Mount for post=${postId}`);
     let mounted = true;
+    let retryTimer: NodeJS.Timeout | null = null;
+    let isJoining = false; // Prevent duplicate joins
 
     const join = async () => {
+      // Prevent duplicate simultaneous joins
+      if (isJoining) {
+        console.log(
+          `⏭️ [ROOM] Already attempting to join ${roomName}, skipping`,
+        );
+        return;
+      }
+
       const socket = getSocket();
+
       console.log(
-        `🚪 [ROOM] Attempting to join ${roomName} | socket exists=${!!socket} | connected=${socket?.connected}`,
+        `🚪 [ROOM] Attempt ${retryCount.current + 1} to join ${roomName} | socket=${!!socket} | connected=${socket?.connected} | hasJoined=${hasJoined.current}`,
       );
 
       if (!socket?.connected) {
-        if (retryCount.current < 10) {
+        if (retryCount.current < MAX_RETRIES) {
           retryCount.current++;
+          const delay = retryCount.current <= 5 ? 500 : 1000;
           console.log(
-            `⏳ [ROOM] Socket not connected, retry ${retryCount.current}/10 in 1s`,
+            `⏳ [ROOM] Socket not connected, retry ${retryCount.current}/${MAX_RETRIES} in ${delay}ms`,
           );
-          setTimeout(join, 1000);
+          retryTimer = setTimeout(join, delay);
         } else {
-          console.error(`❌ [ROOM] Max retries reached for ${roomName}`);
+          console.error(
+            `❌ [ROOM] Max retries (${MAX_RETRIES}) reached for ${roomName}`,
+          );
         }
         return;
       }
 
+      // Only join if we haven't already
+      if (hasJoined.current) {
+        console.log(`⚠️ [ROOM] Already joined ${roomName}, skipping`);
+        return;
+      }
+
+      isJoining = true;
       socket.emit("join-post", postId);
       hasJoined.current = true;
       retryCount.current = 0;
       console.log(`✅ [ROOM] Emitted join-post for ${roomName}`);
 
-      // Register with room manager for reconnection
       roomManager.addRoom(roomName);
       console.log(
         `📝 [ROOM] Registered in roomManager. Active rooms:`,
@@ -317,16 +334,33 @@ export function usePostRoom(postId: string) {
       );
 
       // Listen for confirmation
-      socket.once("post-joined", (data) => {
-        console.log(`✅ [ROOM] Confirmed joined ${roomName}:`, data);
-      });
+      const onJoined = (data: any) => {
+        console.log(`✅ [ROOM] Server confirmed joined ${roomName}:`, data);
+        isJoining = false;
+      };
+      socket.once("post-joined", onJoined);
+
+      // Listen for errors
+      const onError = (error: any) => {
+        console.error(`❌ [ROOM] Error joining ${roomName}:`, error);
+        isJoining = false;
+        hasJoined.current = false; // Reset to allow retry
+        if (mounted && retryCount.current < MAX_RETRIES) {
+          retryCount.current++;
+          retryTimer = setTimeout(join, 1000);
+        }
+      };
+      socket.once("error", onError);
     };
 
-    // Start joining process
-    join();
+    const initialDelay = setTimeout(join, 300);
+    console.log(`⏰ [ROOM] Scheduled initial join for ${roomName} in 300ms`);
 
     return () => {
       mounted = false;
+      clearTimeout(initialDelay);
+      if (retryTimer) clearTimeout(retryTimer);
+
       console.log(`🚪 [ROOM] Cleanup for ${roomName}`);
       hasJoined.current = false;
       roomManager.removeRoom(roomName);

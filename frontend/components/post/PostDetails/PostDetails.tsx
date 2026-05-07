@@ -157,9 +157,6 @@ export const PostDetails = memo(function PostDetails({
       </article>
 
       <section className="mt-8">
-        <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
-          Comments ({post.comment_count})
-        </h2>
         <CommentSection
           postId={post.id}
           onCommentAdded={handleCommentAdded}

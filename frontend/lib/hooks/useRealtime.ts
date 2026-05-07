@@ -24,6 +24,8 @@ import type {
 
 export function useRealtime() {
   const { isAuthenticated, user } = useAuthStore();
+  console.log("use realtime is re rendering");
+
   const {
     addNewPost,
     updatePostInList,
@@ -39,6 +41,7 @@ export function useRealtime() {
   const cleanupFunctions = useRef<(() => void)[]>([]);
 
   useEffect(() => {
+    console.log(" the effect for intializing is being excuted");
     // Only initialize once when authenticated
     if (isAuthenticated && !isInitialized.current) {
       console.log("🔌 Initializing real-time connection...");

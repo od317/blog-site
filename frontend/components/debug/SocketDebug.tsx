@@ -8,36 +8,36 @@ export function SocketDebug() {
   const [status, setStatus] = useState("Disconnected");
   const { user } = useAuthStore();
 
-  useEffect(() => {
-    const checkSocket = async () => {
-      const socket = await connectSocket();
+  // useEffect(() => {
+  //   const checkSocket = async () => {
+  //     const socket = await connectSocket();
 
-      if (socket) {
-        setStatus(socket.connected ? "Connected" : "Connecting");
+  //     if (socket) {
+  //       setStatus(socket.connected ? "Connected" : "Connecting");
 
-        socket.on("connect", () => {
-          console.log("🎯 SOCKET CONNECTED EVENT");
-          setStatus("Connected");
-        });
+  //       socket.on("connect", () => {
+  //         console.log("🎯 SOCKET CONNECTED EVENT");
+  //         setStatus("Connected");
+  //       });
 
-        socket.on("disconnect", () => {
-          console.log("🎯 SOCKET DISCONNECTED EVENT");
-          setStatus("Disconnected");
-        });
+  //       socket.on("disconnect", () => {
+  //         console.log("🎯 SOCKET DISCONNECTED EVENT");
+  //         setStatus("Disconnected");
+  //       });
 
-        socket.on("authenticated", (data) => {
-          console.log("🎯 SOCKET AUTHENTICATED EVENT", data);
-        });
+  //       socket.on("authenticated", (data) => {
+  //         console.log("🎯 SOCKET AUTHENTICATED EVENT", data);
+  //       });
 
-        // Listen for all events for debugging
-        socket.onAny((event, ...args) => {
-          console.log(`🎯 SOCKET EVENT: ${event}`, args);
-        });
-      }
-    };
+  //       // Listen for all events for debugging
+  //       socket.onAny((event, ...args) => {
+  //         console.log(`🎯 SOCKET EVENT: ${event}`, args);
+  //       });
+  //     }
+  //   };
 
-    checkSocket();
-  }, []);
+  //   checkSocket();
+  // }, []);
 
   return (
     <div className="fixed bottom-4 left-4 bg-black text-white p-2 rounded-lg text-xs z-50">

@@ -17,6 +17,9 @@ export const initSocket = async () => {
     return socket;
   }
 
+  if (socket && !socket.connected)
+    console.log("socket is created but not connected");
+  
   const SOCKET_URL = config.socketUrl;
   console.log("🔌 Initializing socket connection to:", SOCKET_URL);
 

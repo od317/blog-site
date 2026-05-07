@@ -32,13 +32,7 @@ export const PostDetails = memo(function PostDetails({
     }
   }, [initialPost.id]);
 
-  const ensurePostInStore = usePostStore((state) => state.ensurePost);
-
-  useEffect(() => {
-    ensurePostInStore(initialPost);
-  }, [initialPost, ensurePostInStore]);
-
-  const post = usePostFromStore(initialPost.id, initialPost);
+  const post = initialPost;
 
   // ✅ CHANGED: Use the new unified hooks
   usePostRoom(post!.id);

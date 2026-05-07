@@ -106,6 +106,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
   },
 
   ensurePost: (post) => {
+    console.log(post, get().posts);
     const exists = get().posts.some((p) => p.id === post.id);
     if (!exists) {
       set((state) => ({

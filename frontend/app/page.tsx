@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { PostFeedWrapper } from "@/components/post/PostFeedWrapper";
 import PostListSkeleton from "@/components/post/PostListSkeleton";
 import { Post } from "@/types/Post";
+import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Home | Blog App",
@@ -20,9 +21,12 @@ async function getInitialPosts(sort: string): Promise<Post[]> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_API_URL;
     const url = `${baseUrl}/posts?sort=${sort}&limit=10&offset=0`;
-
+    const cookieStore = await cookies();
     const response = await fetch(url, {
       cache: "no-store", // Don't cache, we want fresh data
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
     });
 
     if (!response.ok) {

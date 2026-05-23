@@ -16,7 +16,7 @@ Pages pre-rendered at build time for maximum performance:
 
 | Page | Strategy | Reason |
 |------|----------|--------|
-| Homepage | SSG with ISR | Pre-rendered feed, revalidates every 60 seconds |
+| Homepage | SSG with ISR | Pre-rendered feed, revalidates every 60 seconds |   
 | Post Details | SSG with ISR | Pre-renders popular posts, revalidates every 60 seconds |
 | User Profile | Dynamic | Profile data changes frequently, no static generation |
 

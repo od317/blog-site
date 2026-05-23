@@ -11,7 +11,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { setAuthTokens } from "@/app/actions/auth.actions";
-import { X, LogIn } from "lucide-react";
+import { X, LogIn, Eye, Sparkles } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -20,11 +20,13 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    setValue,
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -33,7 +35,7 @@ export function LoginForm() {
     },
   });
 
-  const onSubmit = async (data: LoginInput) => {
+  const performLogin = async (email: string, password: string) => {
     setServerError(null);
     setSuccessMessage(null);
     setIsLoading(true);
@@ -43,8 +45,8 @@ export function LoginForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: data.email,
-          password: data.password,
+          email,
+          password,
         }),
       });
       console.log(response);
@@ -71,11 +73,68 @@ export function LoginForm() {
       setServerError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
+      setIsDemoLoading(false);
     }
+  };
+
+  const onSubmit = async (data: LoginInput) => {
+    await performLogin(data.email, data.password);
+  };
+
+  const handleDemoLogin = async () => {
+    setIsDemoLoading(true);
+
+    // Fill in the demo credentials
+    setValue("email", "demo@example.com");
+    setValue("password", "demo123");
+
+    // Perform login with demo credentials
+    await performLogin("demo@example.com", "demo123");
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* Demo Login Button */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Quick Access
+          </span>
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        fullWidth
+        onClick={handleDemoLogin}
+        isLoading={isDemoLoading}
+        disabled={isLoading || isSubmitting}
+        className="relative overflow-hidden group border-primary/30 hover:border-primary/60 bg-primary/5 hover:bg-primary/10 transition-all duration-300"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="relative flex items-center justify-center gap-2">
+          <Eye className="h-4 w-4 text-primary" />
+          <span className="font-medium">Try Demo Account</span>
+          <Sparkles className="h-3 w-3 text-primary/70" />
+        </div>
+      </Button>
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Or sign in with email
+          </span>
+        </div>
+      </div>
+
       {/* Success Message */}
       {successMessage && (
         <div className="relative rounded-lg bg-primary-500/10 border border-primary-500/20 p-3 text-sm text-primary-400">
@@ -112,7 +171,7 @@ export function LoginForm() {
         type="email"
         placeholder="you@example.com"
         error={errors.email?.message}
-        disabled={isSubmitting || isLoading}
+        disabled={isSubmitting || isLoading || isDemoLoading}
         {...register("email")}
       />
 
@@ -122,12 +181,17 @@ export function LoginForm() {
         type="password"
         placeholder="••••••"
         error={errors.password?.message}
-        disabled={isSubmitting || isLoading}
+        disabled={isSubmitting || isLoading || isDemoLoading}
         {...register("password")}
       />
 
       {/* Submit Button */}
-      <Button type="submit" isLoading={isLoading || isSubmitting} fullWidth>
+      <Button
+        type="submit"
+        isLoading={isLoading || isSubmitting}
+        disabled={isDemoLoading}
+        fullWidth
+      >
         <LogIn className="h-4 w-4 mr-2" />
         Sign In
       </Button>

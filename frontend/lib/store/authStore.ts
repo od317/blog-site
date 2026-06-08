@@ -22,6 +22,7 @@ interface AuthStore extends AuthState {
   clearError: () => void;
   validateAndRefresh: () => Promise<boolean>;
   setUser: (user: User | null) => void;
+  setLoading: (isLoading: boolean) => void;
 }
 
 // Flag to prevent multiple simultaneous auth checks
@@ -32,7 +33,7 @@ export const useAuthStore = create<AuthStore>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: false,
       error: null,
 
       login: async (email: string, password: string) => {
@@ -93,6 +94,9 @@ export const useAuthStore = create<AuthStore>()(
           });
           return { success: false, error: formatted.message };
         }
+      },
+      setLoading: (isLoading: boolean) => {
+        set({ isLoading });
       },
 
       logout: async () => {

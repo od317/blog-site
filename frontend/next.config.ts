@@ -17,14 +17,14 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Hardcode for Render deployment
   env: {
-    NEXT_PUBLIC_API_URL: "https://blog-backend-5dai.onrender.com/api",
-    NEXT_PUBLIC_WS_URL: "https://blog-backend-5dai.onrender.com",
-    NEXT_PUBLIC_SOCKET_URL: "https://blog-backend-5dai.onrender.com",
-    NEXT_PUBLIC_SERVER_API_URL: "https://blog-backend-5dai.onrender.com/api",
+    NEXT_PUBLIC_API_URL: "https://blog-site-api-g8ew.onrender.com/api",
+    NEXT_PUBLIC_WS_URL: "https://blog-site-api-g8ew.onrender.com",
+    NEXT_PUBLIC_SOCKET_URL: "https://blog-site-api-g8ew.onrender.com",
+    NEXT_PUBLIC_SERVER_API_URL: "https://blog-site-api-g8ew.onrender.com/api",
   },
 };
 
 console.log("🔨 Next.js Build with hardcoded Render URLs");
-console.log("API URL:", "https://blog-backend-5dai.onrender.com/api");
+console.log("API URL:", "https://blog-site-api-g8ew.onrender.com/api");
 
 export default nextConfig;

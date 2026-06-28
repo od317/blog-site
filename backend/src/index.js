@@ -14,7 +14,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5000",
-  "https://blog-frontend-i0w1.onrender.com",
+  "https://blog-site-front.onrender.com",
   /\.onrender\.com$/,
 ];
 
